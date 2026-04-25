@@ -61,6 +61,8 @@ const pressedKeyboardKeys = new Set();
 let audioContext;
 let audioUnlockPromise;
 let reverbNode = null;
+let compressorNode = null;
+const pendingNotes = new Set();
 
 const KEYBOARD_TO_NOTE = Object.fromEntries(
   Object.entries(NOTE_TO_KEY).map(([note, key]) => [key, note])
@@ -118,14 +120,23 @@ async function ensureAudioContext() {
     audioUnlockPromise = undefined;
   }
 
-  if (!reverbNode) {
-    setupReverb();
+  if (!compressorNode) {
+    setupAudioChain();
   }
 
   statusEl.textContent = "Audio ready. Play with click or keyboard.";
 }
 
-function setupReverb() {
+function setupAudioChain() {
+  // Master compressor prevents clipping when multiple notes play simultaneously
+  compressorNode = audioContext.createDynamicsCompressor();
+  compressorNode.threshold.value = -12;
+  compressorNode.knee.value = 6;
+  compressorNode.ratio.value = 4;
+  compressorNode.attack.value = 0.002;
+  compressorNode.release.value = 0.15;
+  compressorNode.connect(audioContext.destination);
+
   const rate = audioContext.sampleRate;
   const duration = 2.0;
   const length = Math.floor(rate * duration);
@@ -144,7 +155,7 @@ function setupReverb() {
   const reverbReturn = audioContext.createGain();
   reverbReturn.gain.value = 0.25;
   reverbNode.connect(reverbReturn);
-  reverbReturn.connect(audioContext.destination);
+  reverbReturn.connect(compressorNode);
 }
 
 function noteDecayTime(midi) {
@@ -235,7 +246,10 @@ async function playNote(note) {
   const info = notesByName.get(note);
   if (!info) return;
 
-  // Allow re-trigger if previous voice has naturally decayed
+  // Guard before the async gap: prevents same note being double-started
+  // when two keydown events arrive before either resolves ensureAudioContext
+  if (pendingNotes.has(note)) return;
+
   const existing = activeVoices.get(note);
   if (existing) {
     if (!audioContext || audioContext.currentTime < existing.decayEndTime - 0.1) {
@@ -245,11 +259,14 @@ async function playNote(note) {
     setKeyActiveState(note, false);
   }
 
+  pendingNotes.add(note);
   try {
     await ensureAudioContext();
   } catch {
+    pendingNotes.delete(note);
     return;
   }
+  pendingNotes.delete(note);
 
   const now = audioContext.currentTime;
   const midi = noteToMidi(note);
@@ -259,7 +276,7 @@ async function playNote(note) {
   masterGain.gain.setValueAtTime(0, now);
   masterGain.gain.linearRampToValueAtTime(0.8, now + 0.003);
   masterGain.gain.exponentialRampToValueAtTime(0.0001, now + decayTime);
-  masterGain.connect(audioContext.destination);
+  masterGain.connect(compressorNode);
   masterGain.connect(reverbNode);
 
   const oscillators = [];
@@ -317,6 +334,7 @@ function stopNote(note) {
     try { osc.stop(now + 0.16); } catch { /* already stopped */ }
   });
 
+  pendingNotes.delete(note);
   activeVoices.delete(note);
   setKeyActiveState(note, false);
 }
