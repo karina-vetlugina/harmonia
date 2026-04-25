@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+toypiano/__init__.py
+toypiano/__main__.py
+toypiano/audio.py
+toypiano/calibrate.py
+toypiano/cli.py
+toypiano/detect.py
+toypiano/onset.py
+toypiano/realtime.py
+toypiano/templates.py
+toypiano.egg-info/PKG-INFO
+toypiano.egg-info/SOURCES.txt
+toypiano.egg-info/dependency_links.txt
+toypiano.egg-info/entry_points.txt
+toypiano.egg-info/requires.txt
+toypiano.egg-info/top_level.txt

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toypiano"
+version = "0.1.0"
+description = "Polyphonic note detection for a known toy piano via spectral template NNLS."
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "librosa>=0.10",
+    "sounddevice>=0.4",
+    "soundfile>=0.12",
+    "click>=8.0",
+]
+
+[project.scripts]
+toypiano = "toypiano.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["toypiano*"]

@@ -1,0 +1,2 @@
+[console_scripts]
+toypiano = toypiano.cli:cli
