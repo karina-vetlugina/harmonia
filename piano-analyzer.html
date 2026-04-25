@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Piano</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Playfair+Display:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --fg: #f0ede6;
+    --dim: #3a3732;
+    --accent: #c8b89a;
+    --glow: rgba(200, 184, 154, 0.15);
+  }
+
+  html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: 'DM Mono', monospace; overflow: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 100; opacity: 0.4;
+  }
+
+  #main { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; gap: 2rem; }
+
+  #start-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--accent); background: transparent; border: 1px solid var(--dim);
+    padding: 0.75rem 2rem; cursor: pointer;
+    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s; outline: none;
+  }
+  #start-btn:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--glow); }
+  #start-btn.active { color: var(--fg); border-color: var(--accent); box-shadow: 0 0 30px var(--glow); }
+
+  #display {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 45vh; width: 100%;
+  }
+
+  /* Chord name: root in serif, quality in mono, slash bass in dim */
+  #chord-name {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(4rem, 15vw, 10rem); font-weight: 700;
+    letter-spacing: -0.02em; line-height: 1; text-align: center;
+    transition: opacity 0.15s; min-height: 1.1em;
+    display: flex; align-items: baseline; justify-content: center;
+  }
+  #chord-name.dim { opacity: 0.08; }
+  #chord-name .root { color: var(--fg); }
+  #chord-name .quality {
+    font-family: 'DM Mono', monospace; font-size: 0.38em; font-weight: 400;
+    color: var(--accent); margin-left: 0.06em;
+    align-self: flex-start; margin-top: 0.15em; letter-spacing: 0.01em;
+  }
+  #chord-name .slash {
+    font-family: 'DM Mono', monospace; font-size: 0.28em; font-weight: 300;
+    color: var(--dim); margin-left: 0.1em;
+    align-self: flex-end; margin-bottom: 0.12em;
+  }
+
+  #chord-desc {
+    font-size: 0.6rem; letter-spacing: 0.18em; color: var(--dim);
+    text-transform: uppercase; margin-top: 0.5rem; min-height: 1rem;
+  }
+
+  /* Note pills: horizontal row sorted low→high, root highlighted */
+  #notes-row {
+    display: flex; gap: 0.5rem; margin-top: 1.25rem;
+    min-height: 2.2rem; align-items: center;
+    flex-wrap: wrap; justify-content: center; max-width: 85vw;
+  }
+
+  .note-pill {
+    font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    letter-spacing: 0.06em; color: var(--accent);
+    border: 1px solid var(--dim); border-radius: 2px;
+    padding: 0.18rem 0.6rem;
+    opacity: 0; transform: translateY(4px);
+    transition: opacity 0.12s, transform 0.12s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .note-pill.visible { opacity: 1; transform: translateY(0); }
+  .note-pill.is-root {
+    color: var(--fg); border-color: var(--accent);
+    box-shadow: 0 0 12px var(--glow);
+  }
+  .note-pill .oct { font-size: 0.68em; opacity: 0.45; vertical-align: sub; }
+
+  #history {
+    position: fixed; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 1.5rem; align-items: center; height: 1.5rem;
+  }
+  .hist-item {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.1em; color: var(--dim); white-space: nowrap;
+  }
+
+  #status {
+    font-size: 0.65rem; letter-spacing: 0.2em; color: var(--dim);
+    text-transform: uppercase; position: fixed; top: 2rem;
+    left: 50%; transform: translateX(-50%);
+  }
+
+  #vu {
+    display: flex; gap: 3px; align-items: flex-end; height: 24px;
+    position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+  }
+  .vu-bar { width: 3px; background: var(--dim); border-radius: 1px; transition: height 0.05s, background 0.1s; min-height: 2px; }
+</style>
+</head>
+<body>
+<div id="status">piano analyzer</div>
+<div id="main">
+  <div id="display">
+    <div id="chord-name" class="dim"><span class="root">—</span></div>
+    <div id="chord-desc"></div>
+    <div id="notes-row"></div>
+  </div>
+  <button id="start-btn">listen</button>
+</div>
+<div id="vu"></div>
+<div id="history"></div>
+
+<script>
+// ── Music theory ──────────────────────────────────────────────────────
+const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_FLAT   = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const PREFER_FLAT = new Set([1,3,6,8,10]); // Db Eb Gb Ab Bb
+
+function noteName(pc) { return PREFER_FLAT.has(pc) ? NOTE_FLAT[pc] : NOTE_NAMES[pc]; }
+
+function midiToInfo(midi) {
+  const pc = midi % 12;
+  return { midi, pc, name: noteName(pc), octave: Math.floor(midi / 12) - 1 };
+}
+
+function freqToMidi(freq) {
+  if (freq < 27.5 || freq > 4200) return null;
+  const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+  return (midi >= 21 && midi <= 108) ? midi : null;
+}
+
+// ── Chord templates ───────────────────────────────────────────────────
+// norm = sorted unique pitch-class intervals from root
+const CHORD_TEMPLATES = [
+  { i:[0,4,7],      s:'',      d:'major'            },
+  { i:[0,3,7],      s:'m',     d:'minor'             },
+  { i:[0,3,6],      s:'°',     d:'diminished'        },
+  { i:[0,4,8],      s:'+',     d:'augmented'         },
+  { i:[0,5,7],      s:'sus4',  d:'suspended 4th'     },
+  { i:[0,2,7],      s:'sus2',  d:'suspended 2nd'     },
+  { i:[0,4,7,11],   s:'M7',    d:'major 7th'         },
+  { i:[0,4,7,10],   s:'7',     d:'dominant 7th'      },
+  { i:[0,3,7,10],   s:'m7',    d:'minor 7th'         },
+  { i:[0,3,6,10],   s:'m7♭5',  d:'half-diminished'   },
+  { i:[0,3,6,9],    s:'°7',    d:'diminished 7th'    },
+  { i:[0,4,8,10],   s:'+7',    d:'aug dominant 7th'  },
+  { i:[0,3,7,11],   s:'mM7',   d:'minor-major 7th'   },
+  { i:[0,4,7,9],    s:'6',     d:'major 6th'         },
+  { i:[0,3,7,9],    s:'m6',    d:'minor 6th'         },
+  { i:[0,2,4,7],    s:'add9',  d:'add 9'             },
+  { i:[0,4,5,7],    s:'add4',  d:'add 4'             },
+  { i:[0,4,7,10,2], s:'9',     d:'dominant 9th'      },
+  { i:[0,4,7,11,2], s:'M9',    d:'major 9th'         },
+  { i:[0,3,7,10,2], s:'m9',    d:'minor 9th'         },
+].map(t => ({ ...t, norm: [...new Set(t.i.map(v => v % 12))].sort((a,b)=>a-b) }));
+
+function identifyChord(activeNotes) {
+  // activeNotes: array of midiToInfo objects, sorted by midi
+  if (activeNotes.length < 2) return null;
+  const pcs   = [...new Set(activeNotes.map(n => n.pc))];
+  const pcSet = new Set(pcs);
+
+  // Lowest note for inversion/slash detection
+  const lowestPc = activeNotes[0].pc;
+
+  let best = null, bestScore = -Infinity;
+
+  for (const root of pcs) {
+    for (const tmpl of CHORD_TEMPLATES) {
+      const needed  = tmpl.norm.map(i => (root + i) % 12);
+      const matches = needed.filter(n => pcSet.has(n)).length;
+      if (!pcSet.has(root)) continue;
+      if (matches < 2) continue;
+      const coverage  = matches / tmpl.norm.length;
+      if (coverage < 0.5) continue;
+      const precision = matches / pcs.length;
+      const score = coverage * 0.65 + precision * 0.35;
+      if (score > bestScore) {
+        bestScore = score;
+        const slash = (lowestPc !== root && pcSet.has(lowestPc)) ? noteName(lowestPc) : '';
+        best = { root: noteName(root), rootPc: root, suffix: tmpl.s, desc: tmpl.d, slash };
+      }
+    }
+  }
+  return best;
+}
+
+// ── Peak detection ────────────────────────────────────────────────────
+// Minimum amplitude for a bin to be considered (0-255 scale).
+// Raised to 30 to reduce noise floor triggers.
+const SILENCE_THRESHOLD = 30;
+
+// Notes must be within this fraction of the loudest detected peak.
+// Eliminates weak harmonics that survived frequency-ratio suppression.
+const AMP_RATIO_MIN = 0.13; // ~18 dB below loudest
+
+function pickRawPeaks(freqData, sampleRate) {
+  const binSize = (sampleRate / 2) / freqData.length;
+  const minBin  = Math.floor(27.5 / binSize);
+  const maxBin  = Math.ceil(4200  / binSize);
+  const raw = [];
+
+  for (let i = minBin + 1; i < maxBin - 1; i++) {
+    const v = freqData[i];
+    if (v < SILENCE_THRESHOLD) continue;
+    if (v <= freqData[i-1] || v <= freqData[i+1]) continue;
+
+    // Parabolic interpolation for sub-bin frequency accuracy
+    const denom = freqData[i-1] - 2*v + freqData[i+1];
+    const off   = denom !== 0 ? 0.5 * (freqData[i-1] - freqData[i+1]) / denom : 0;
+    const freq  = (i + off) * binSize;
+    const midi  = freqToMidi(freq);
+    if (midi === null) continue;
+
+    // Keep the strongest detection per MIDI note
+    const ex = raw.find(p => p.midi === midi);
+    if (ex) { if (v > ex.amp) { ex.amp = v; ex.freq = freq; } }
+    else raw.push({ freq, amp: v, midi });
+  }
+
+  return raw.sort((a, b) => b.amp - a.amp);
+}
+
+// Remove peaks whose frequency is an integer multiple (2x–8x) of a stronger peak.
+// Piano harmonics follow roughly 2:1, 3:1, etc. ratios from the fundamental.
+// 3% tolerance covers slight inharmonicity in piano strings.
+function suppressHarmonics(peaks) {
+  const keep = [];
+  for (const p of peaks) {
+    let harmonic = false;
+    for (const k of keep) {
+      const ratio = p.freq / k.freq;
+      for (let h = 2; h <= 8; h++) {
+        if (Math.abs(ratio - h) / h < 0.03) { harmonic = true; break; }
+      }
+      if (harmonic) break;
+    }
+    if (!harmonic) keep.push(p);
+  }
+  return keep;
+}
+
+// ── Note state machine ────────────────────────────────────────────────
+// Each MIDI note goes through: attack → on → decay.
+// - 'attack': note just appeared; must persist MIN_ATTACK_FRAMES before showing.
+//   This blocks single-frame noise spikes from ever reaching the display.
+// - 'on': note confirmed present.
+// - 'decay': note no longer detected; held for DECAY_FRAMES before removal.
+//   This prevents rapid disappearance during natural amplitude dips.
+
+const MIN_ATTACK_FRAMES = 3;  // ~50ms at 60fps
+const DECAY_FRAMES      = 20; // ~330ms at 60fps
+
+const midiState = {}; // midi → { phase, frames, amp }
+
+function updateNoteTracker(peaks) {
+  // Apply amplitude ratio filter first
+  const maxAmp    = peaks.length ? peaks[0].amp : 0;
+  const qualified = peaks.filter(p => p.amp >= maxAmp * AMP_RATIO_MIN);
+  const detected  = new Map(qualified.map(p => [p.midi, p.amp]));
+
+  // Advance all tracked notes
+  for (const key of Object.keys(midiState)) {
+    const midi = parseInt(key);
+    const s    = midiState[key];
+
+    if (detected.has(midi)) {
+      s.amp = detected.get(midi);
+      if      (s.phase === 'attack') { s.frames++; if (s.frames >= MIN_ATTACK_FRAMES) { s.phase = 'on'; s.frames = 0; } }
+      else if (s.phase === 'on')     { s.frames = 0; }
+      else if (s.phase === 'decay')  { s.phase = 'on'; s.frames = 0; }
+    } else {
+      if      (s.phase === 'attack') { delete midiState[key]; }          // spurious peak, never confirmed
+      else if (s.phase === 'on')     { s.phase = 'decay'; s.frames = 1; }
+      else if (s.phase === 'decay')  { s.frames++; if (s.frames >= DECAY_FRAMES) delete midiState[key]; }
+    }
+  }
+
+  // Register new detected notes
+  for (const [midi, amp] of detected) {
+    if (!midiState[midi]) midiState[midi] = { phase: 'attack', frames: 1, amp };
+  }
+}
+
+// Returns confirmed active notes sorted low→high by MIDI number.
+function getActiveNotes() {
+  return Object.entries(midiState)
+    .filter(([, s]) => s.phase === 'on' || s.phase === 'decay')
+    .map(([midi]) => midiToInfo(parseInt(midi)))
+    .sort((a, b) => a.midi - b.midi);
+}
+
+function resetNoteTracker() {
+  for (const k of Object.keys(midiState)) delete midiState[k];
+}
+
+// ── Chord label stability ─────────────────────────────────────────────
+// Only update the displayed chord name when the same label appears in
+// 60% of the last VOTE_WINDOW frames. Prevents label flickering during
+// note transitions while still being responsive to real chord changes.
+const VOTE_WINDOW = 5;
+const labelBuf = [];
+
+function stableLabel(label) {
+  labelBuf.push(label);
+  if (labelBuf.length > VOTE_WINDOW) labelBuf.shift();
+  const counts = {};
+  for (const l of labelBuf) counts[l] = (counts[l] || 0) + 1;
+  let best = null, bestN = 0;
+  for (const [l, n] of Object.entries(counts)) { if (n > bestN) { best = l; bestN = n; } }
+  return bestN >= Math.ceil(VOTE_WINDOW * 0.6) ? best : null;
+}
+
+// ── DOM elements ──────────────────────────────────────────────────────
+const chordEl  = document.getElementById('chord-name');
+const descEl   = document.getElementById('chord-desc');
+const notesRow = document.getElementById('notes-row');
+const histEl   = document.getElementById('history');
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('start-btn');
+const vuEl     = document.getElementById('vu');
+
+const VU_COUNT = 20;
+for (let i = 0; i < VU_COUNT; i++) {
+  const b = document.createElement('div');
+  b.className = 'vu-bar'; b.style.height = '2px';
+  vuEl.appendChild(b);
+}
+const vuBars = Array.from(vuEl.children);
+
+let history   = [];
+let lastLabel = '';
+let silenceTimer = null;
+
+// ── Render ────────────────────────────────────────────────────────────
+function renderChord(result, activeNotes) {
+  chordEl.innerHTML = '';
+
+  if (!result) {
+    // Single note or unrecognized interval cluster: show note names
+    const span = document.createElement('span');
+    span.className = 'root';
+    span.textContent = activeNotes.map(n => n.name).join(' ');
+    chordEl.appendChild(span);
+    descEl.textContent = activeNotes.length === 2 ? 'interval' : '';
+    return;
+  }
+
+  const r = document.createElement('span');
+  r.className = 'root'; r.textContent = result.root;
+  chordEl.appendChild(r);
+
+  if (result.suffix) {
+    const q = document.createElement('span');
+    q.className = 'quality'; q.textContent = result.suffix;
+    chordEl.appendChild(q);
+  }
+
+  if (result.slash) {
+    const s = document.createElement('span');
+    s.className = 'slash'; s.textContent = '/' + result.slash;
+    chordEl.appendChild(s);
+  }
+
+  descEl.textContent = result.desc;
+}
+
+// Note pills: one per active note, sorted low→high (already sorted from getActiveNotes).
+// Root note gets highlighted border + glow.
+function renderNotePills(notes, rootPc) {
+  // Reuse existing pills to avoid layout thrash and unwanted re-animations.
+  // Match by data-midi attribute; only add/remove what changed.
+  const existing = new Map(
+    Array.from(notesRow.children).map(el => [parseInt(el.dataset.midi), el])
+  );
+  const incoming = new Set(notes.map(n => n.midi));
+
+  // Remove stale pills
+  for (const [midi, el] of existing) {
+    if (!incoming.has(midi)) {
+      el.classList.remove('visible');
+      // Remove after transition
+      setTimeout(() => el.remove(), 150);
+    }
+  }
+
+  // Add or update pills, maintaining sort order
+  notes.forEach((note, idx) => {
+    let pill = existing.get(note.midi);
+
+    if (!pill) {
+      pill = document.createElement('span');
+      pill.className = 'note-pill';
+      pill.dataset.midi = note.midi;
+      pill.innerHTML = note.name + `<span class="oct">${note.octave}</span>`;
+      notesRow.appendChild(pill);
+      // Defer visible class to trigger CSS transition
+      requestAnimationFrame(() => pill.classList.add('visible'));
+    }
+
+    // Keep root highlight in sync every frame
+    pill.classList.toggle('is-root', note.pc === rootPc);
+
+    // Maintain DOM order matching sorted pitch order
+    if (notesRow.children[idx] !== pill) notesRow.insertBefore(pill, notesRow.children[idx]);
+  });
+}
+
+function renderHistory() {
+  histEl.innerHTML = '';
+  history.slice(1).forEach((h, i) => {
+    const el = document.createElement('span');
+    el.className = 'hist-item';
+    el.textContent = h;
+    el.style.opacity = (0.4 - i * 0.07).toString();
+    histEl.appendChild(el);
+  });
+}
+
+// ── Audio ─────────────────────────────────────────────────────────────
+let audioCtx, analyser, source, animFrame;
+const FFT_SIZE = 8192;
+
+function loop() {
+  animFrame = requestAnimationFrame(loop);
+
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  const timeData = new Uint8Array(analyser.fftSize);
+  analyser.getByteFrequencyData(freqData);
+  analyser.getByteTimeDomainData(timeData);
+
+  // VU meter from time-domain RMS
+  let rms = 0;
+  for (let i = 0; i < timeData.length; i++) rms += (timeData[i] - 128) ** 2;
+  rms = Math.sqrt(rms / timeData.length);
+  const vuNorm = Math.min(rms / 40, 1);
+  vuBars.forEach((bar, i) => {
+    const t = i / VU_COUNT;
+    if (vuNorm > t) {
+      bar.style.height = (3 + Math.random() * 18 * vuNorm) + 'px';
+      bar.style.background = `rgba(200,184,154,${0.3 + 0.7 * vuNorm})`;
+    } else {
+      bar.style.height = '2px';
+      bar.style.background = 'var(--dim)';
+    }
+  });
+
+  // Detect peaks → suppress harmonics → update state machine
+  const rawPeaks = pickRawPeaks(freqData, audioCtx.sampleRate);
+  const peaks    = suppressHarmonics(rawPeaks.slice(0, 12));
+  updateNoteTracker(peaks);
+
+  const activeNotes = getActiveNotes();
+
+  // Handle silence: fade display after 500ms of no active notes
+  if (activeNotes.length === 0) {
+    if (!silenceTimer) {
+      silenceTimer = setTimeout(() => {
+        chordEl.innerHTML = '<span class="root">—</span>';
+        chordEl.classList.add('dim');
+        descEl.textContent = '';
+        lastLabel = '';
+        labelBuf.length = 0;
+      }, 500);
+    }
+    // Fade out pills immediately
+    renderNotePills([], undefined);
+    return;
+  }
+
+  clearTimeout(silenceTimer);
+  silenceTimer = null;
+  chordEl.classList.remove('dim');
+
+  // Build label for stability voting
+  const pcs    = [...new Set(activeNotes.map(n => n.pc))];
+  const result = pcs.length >= 2 ? identifyChord(activeNotes) : null;
+
+  let label;
+  if (activeNotes.length === 1) {
+    label = activeNotes[0].name;
+  } else if (result) {
+    label = result.root + result.suffix + (result.slash ? '/' + result.slash : '');
+  } else {
+    label = activeNotes.map(n => n.name).join('+');
+  }
+
+  const stable = stableLabel(label);
+  if (stable && stable !== lastLabel) {
+    lastLabel = stable;
+    renderChord(result, activeNotes);
+    history.unshift(stable);
+    history = history.slice(0, 6);
+    renderHistory();
+  }
+
+  // Note pills update every frame (real-time, uses diff to avoid flicker)
+  renderNotePills(activeNotes, result?.rootPc ?? activeNotes[0]?.pc);
+}
+
+// ── Start / Stop ──────────────────────────────────────────────────────
+let running = false;
+
+startBtn.addEventListener('click', async () => {
+  if (running) {
+    running = false;
+    cancelAnimationFrame(animFrame);
+    if (source) source.disconnect();
+    if (audioCtx) audioCtx.close();
+    clearTimeout(silenceTimer); silenceTimer = null;
+    resetNoteTracker();
+    labelBuf.length = 0;
+    startBtn.textContent = 'listen';
+    startBtn.classList.remove('active');
+    statusEl.textContent = 'piano analyzer';
+    chordEl.innerHTML = '<span class="root">—</span>';
+    chordEl.classList.add('dim');
+    descEl.textContent = '';
+    notesRow.innerHTML = '';
+    vuBars.forEach(b => { b.style.height = '2px'; b.style.background = 'var(--dim)'; });
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = FFT_SIZE;
+    // Low smoothing = fast transient response. Stability comes from the state
+    // machine, not the analyser's time averaging.
+    analyser.smoothingTimeConstant = 0.5;
+    source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    running = true;
+    startBtn.textContent = 'stop';
+    startBtn.classList.add('active');
+    statusEl.textContent = 'listening';
+    chordEl.classList.remove('dim');
+    chordEl.innerHTML = '<span class="root">—</span>';
+    loop();
+  } catch(e) {
+    statusEl.textContent = 'mic denied';
+    console.error(e);
+  }
+});
+</script>
+</body>
+</html>

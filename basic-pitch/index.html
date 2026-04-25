@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basic Pitch Piano Analyzer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Playfair+Display:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080808;
+    --fg: #f0ede6;
+    --dim: #3a3732;
+    --accent: #c8b89a;
+    --hot: #f3d28c;
+    --glow: rgba(200, 184, 154, 0.16);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #status {
+    position: fixed;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--dim);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    width: min(92vw, 56rem);
+  }
+
+  #main {
+    width: min(92vw, 64rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.8rem;
+  }
+
+  #chord-name {
+    min-height: 1.05em;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(4rem, 14vw, 10rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    text-align: center;
+    transition: opacity 0.18s;
+  }
+
+  #chord-name.dim { opacity: 0.08; }
+  #chord-name .root { color: var(--fg); }
+
+  #chord-name .quality {
+    margin-left: 0.07em;
+    align-self: flex-start;
+    margin-top: 0.15em;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.34em;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  #chord-name .slash {
+    margin-left: 0.1em;
+    align-self: flex-end;
+    margin-bottom: 0.13em;
+    color: var(--dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.28em;
+    font-weight: 300;
+  }
+
+  #chord-desc {
+    min-height: 1rem;
+    margin-top: 0.4rem;
+    color: var(--dim);
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  #notes-row {
+    min-height: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.55rem;
+  }
+
+  .note-pill {
+    min-width: 3rem;
+    padding: 0.24rem 0.62rem;
+    border: 1px solid var(--dim);
+    border-radius: 2px;
+    color: var(--accent);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.14s, transform 0.14s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+
+  .note-pill.visible { opacity: 1; transform: translateY(0); }
+  .note-pill.is-root { color: var(--fg); border-color: var(--accent); box-shadow: 0 0 14px var(--glow); }
+  .note-pill .oct { font-size: 0.68em; opacity: 0.45; vertical-align: sub; }
+  .note-pill .amp { display: block; margin-top: 0.18rem; color: var(--dim); font-size: 0.52rem; letter-spacing: 0.04em; }
+
+  #start-btn {
+    padding: 0.75rem 2rem;
+    border: 1px solid var(--dim);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.3s, color 0.3s, box-shadow 0.3s;
+  }
+
+  #start-btn:hover,
+  #start-btn.active {
+    border-color: var(--accent);
+    color: var(--fg);
+    box-shadow: 0 0 28px var(--glow);
+  }
+
+  #meters {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  #vu {
+    height: 24px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .vu-bar {
+    width: 3px;
+    min-height: 2px;
+    border-radius: 1px;
+    background: var(--dim);
+    transition: height 0.06s, background 0.1s;
+  }
+
+  #history {
+    min-height: 1rem;
+    display: flex;
+    gap: 1.2rem;
+    color: var(--dim);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  #hint {
+    max-width: 46rem;
+    color: var(--dim);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    line-height: 1.6;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div id="status">spotify basic pitch piano analyzer</div>
+<main id="main">
+  <section id="display">
+    <div id="chord-name" class="dim"><span class="root">-</span></div>
+    <div id="chord-desc"></div>
+  </section>
+  <div id="notes-row"></div>
+  <button id="start-btn">listen</button>
+  <p id="hint">Polyphonic note detection via overlapping Spotify Basic Pitch windows. Best with one piano close to the mic and headphones to avoid feedback.</p>
+</main>
+<div id="meters">
+  <div id="vu"></div>
+  <div id="history"></div>
+</div>
+
+<script type="module">
+import {
+  BasicPitch,
+  addPitchBendsToNoteEvents,
+  noteFramesToTime,
+  outputToNotesPoly,
+} from 'https://esm.sh/@spotify/basic-pitch@1.0.1';
+
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@spotify/basic-pitch@1.0.1/model/model.json';
+const TARGET_SAMPLE_RATE = 22050;
+const WINDOW_SECONDS = 2.0;
+const ANALYZE_EVERY_MS = 420;
+const ACTIVE_TAIL_SECONDS = 0.55;
+const NOTE_TTL_MS = 950;
+const MAX_NOTES = 10;
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const PREFER_FLAT = new Set([1, 3, 6, 8, 10]);
+
+const CHORD_TEMPLATES = [
+  { i: [0, 4, 7], s: '', d: 'major' },
+  { i: [0, 3, 7], s: 'm', d: 'minor' },
+  { i: [0, 3, 6], s: 'dim', d: 'diminished' },
+  { i: [0, 4, 8], s: '+', d: 'augmented' },
+  { i: [0, 5, 7], s: 'sus4', d: 'suspended 4th' },
+  { i: [0, 2, 7], s: 'sus2', d: 'suspended 2nd' },
+  { i: [0, 4, 7, 11], s: 'M7', d: 'major 7th' },
+  { i: [0, 4, 7, 10], s: '7', d: 'dominant 7th' },
+  { i: [0, 3, 7, 10], s: 'm7', d: 'minor 7th' },
+  { i: [0, 3, 6, 10], s: 'm7b5', d: 'half-diminished' },
+  { i: [0, 3, 6, 9], s: 'dim7', d: 'diminished 7th' },
+  { i: [0, 4, 7, 9], s: '6', d: 'major 6th' },
+  { i: [0, 3, 7, 9], s: 'm6', d: 'minor 6th' },
+  { i: [0, 2, 4, 7], s: 'add9', d: 'add 9' },
+  { i: [0, 4, 7, 10, 2], s: '9', d: 'dominant 9th' },
+  { i: [0, 4, 7, 11, 2], s: 'M9', d: 'major 9th' },
+  { i: [0, 3, 7, 10, 2], s: 'm9', d: 'minor 9th' },
+].map(t => ({ ...t, norm: [...new Set(t.i.map(v => v % 12))].sort((a, b) => a - b) }));
+
+const chordEl = document.getElementById('chord-name');
+const descEl = document.getElementById('chord-desc');
+const notesRow = document.getElementById('notes-row');
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('start-btn');
+const vuEl = document.getElementById('vu');
+const historyEl = document.getElementById('history');
+
+const vuBars = Array.from({ length: 20 }, () => {
+  const bar = document.createElement('div');
+  bar.className = 'vu-bar';
+  vuEl.appendChild(bar);
+  return bar;
+});
+
+let basicPitch;
+let audioCtx;
+let stream;
+let source;
+let processor;
+let muteGain;
+let analyzeTimer;
+let generation = 0;
+let running = false;
+let isInferring = false;
+let pendingInference = false;
+let rollingChunks = [];
+let rollingSampleCount = 0;
+let activeMidi = new Map();
+let labelHistory = [];
+let lastLabel = '';
+
+function noteName(pc) {
+  return PREFER_FLAT.has(pc) ? NOTE_FLAT[pc] : NOTE_NAMES[pc];
+}
+
+function midiToInfo(midi, amplitude = 0) {
+  const pc = midi % 12;
+  return {
+    midi,
+    pc,
+    amplitude,
+    name: noteName(pc),
+    octave: Math.floor(midi / 12) - 1,
+  };
+}
+
+function identifyChord(activeNotes) {
+  if (activeNotes.length < 2) return null;
+
+  const pcs = [...new Set(activeNotes.map(n => n.pc))];
+  const pcSet = new Set(pcs);
+  const lowestPc = activeNotes[0].pc;
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const root of pcs) {
+    for (const tmpl of CHORD_TEMPLATES) {
+      const needed = tmpl.norm.map(i => (root + i) % 12);
+      const matches = needed.filter(n => pcSet.has(n)).length;
+      if (!pcSet.has(root) || matches < 2) continue;
+
+      const coverage = matches / tmpl.norm.length;
+      if (coverage < 0.5) continue;
+
+      const precision = matches / pcs.length;
+      const bassBonus = lowestPc === root ? 0.04 : 0;
+      const score = coverage * 0.65 + precision * 0.35 + bassBonus;
+      if (score > bestScore) {
+        bestScore = score;
+        best = {
+          root: noteName(root),
+          rootPc: root,
+          suffix: tmpl.s,
+          desc: tmpl.d,
+          slash: lowestPc !== root ? noteName(lowestPc) : '',
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+function appendAudioChunk(input) {
+  const copy = new Float32Array(input.length);
+  copy.set(input);
+  rollingChunks.push(copy);
+  rollingSampleCount += copy.length;
+
+  const maxSamples = Math.ceil((WINDOW_SECONDS + 0.5) * audioCtx.sampleRate);
+  while (rollingSampleCount > maxSamples && rollingChunks.length > 1) {
+    rollingSampleCount -= rollingChunks.shift().length;
+  }
+}
+
+function getRecentSamples(sampleCount) {
+  if (rollingSampleCount < sampleCount) return null;
+
+  const output = new Float32Array(sampleCount);
+  let write = sampleCount;
+  for (let i = rollingChunks.length - 1; i >= 0 && write > 0; i--) {
+    const chunk = rollingChunks[i];
+    const take = Math.min(chunk.length, write);
+    write -= take;
+    output.set(chunk.subarray(chunk.length - take), write);
+  }
+  return output;
+}
+
+function resampleLinear(input, sourceRate, targetRate) {
+  if (sourceRate === targetRate) return input;
+
+  const targetLength = Math.max(1, Math.round(input.length * targetRate / sourceRate));
+  const output = new Float32Array(targetLength);
+  const ratio = (input.length - 1) / Math.max(1, targetLength - 1);
+
+  for (let i = 0; i < targetLength; i++) {
+    const pos = i * ratio;
+    const left = Math.floor(pos);
+    const right = Math.min(left + 1, input.length - 1);
+    const frac = pos - left;
+    output[i] = input[left] * (1 - frac) + input[right] * frac;
+  }
+
+  return output;
+}
+
+function updateVu(input) {
+  let rms = 0;
+  for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
+  const vuNorm = Math.min(Math.sqrt(rms / input.length) * 7, 1);
+
+  vuBars.forEach((bar, i) => {
+    const lit = vuNorm > i / vuBars.length;
+    bar.style.height = lit ? `${3 + Math.random() * 20 * vuNorm}px` : '2px';
+    bar.style.background = lit ? `rgba(200,184,154,${0.3 + 0.7 * vuNorm})` : 'var(--dim)';
+  });
+}
+
+async function ensureModel() {
+  if (!basicPitch) {
+    statusEl.textContent = 'loading spotify basic pitch model';
+    basicPitch = new BasicPitch(MODEL_URL);
+    await basicPitch.model;
+  }
+  return basicPitch;
+}
+
+function scheduleInference() {
+  if (!running) return;
+  if (isInferring) {
+    pendingInference = true;
+    return;
+  }
+  void runInference(generation);
+}
+
+async function runInference(runGeneration) {
+  const sourceSamples = Math.round(WINDOW_SECONDS * audioCtx.sampleRate);
+  const snapshot = getRecentSamples(sourceSamples);
+  if (!snapshot) {
+    statusEl.textContent = 'listening - filling analysis window';
+    return;
+  }
+
+  isInferring = true;
+  pendingInference = false;
+
+  try {
+    const model = await ensureModel();
+    if (!running || runGeneration !== generation) return;
+
+    const audio = resampleLinear(snapshot, audioCtx.sampleRate, TARGET_SAMPLE_RATE);
+    const frames = [];
+    const onsets = [];
+    const contours = [];
+
+    await model.evaluateModel(
+      audio,
+      (f, o, c) => {
+        frames.push(...f);
+        onsets.push(...o);
+        contours.push(...c);
+      },
+      pct => {
+        if (running && runGeneration === generation) {
+          statusEl.textContent = `basic pitch inference ${Math.round(pct * 100)}%`;
+        }
+      },
+    );
+
+    if (!running || runGeneration !== generation) return;
+    updateActiveNotes(frames, onsets, contours);
+    render();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'basic pitch error - see console';
+  } finally {
+    isInferring = false;
+    if (pendingInference && running && runGeneration === generation) scheduleInference();
+  }
+}
+
+function updateActiveNotes(frames, onsets, contours) {
+  const noteEvents = outputToNotesPoly(
+    frames,
+    onsets,
+    0.32,
+    0.22,
+    3,
+    true,
+    4186,
+    27.5,
+    true,
+    10,
+  );
+  const timedNotes = noteFramesToTime(addPitchBendsToNoteEvents(contours, noteEvents));
+  const now = performance.now();
+  const tailStart = Math.max(0, WINDOW_SECONDS - ACTIVE_TAIL_SECONDS);
+  const current = timedNotes
+    .filter(note => note.pitchMidi >= 21 && note.pitchMidi <= 108)
+    .filter(note => note.startTimeSeconds + note.durationSeconds >= tailStart)
+    .filter(note => note.startTimeSeconds <= WINDOW_SECONDS - 0.03)
+    .sort((a, b) => b.amplitude - a.amplitude)
+    .slice(0, MAX_NOTES);
+
+  for (const note of current) {
+    const midi = Math.round(note.pitchMidi);
+    const existing = activeMidi.get(midi);
+    activeMidi.set(midi, {
+      amplitude: Math.max(note.amplitude, existing?.amplitude ?? 0),
+      lastSeen: now,
+    });
+  }
+
+  for (const [midi, state] of activeMidi) {
+    if (now - state.lastSeen > NOTE_TTL_MS) activeMidi.delete(midi);
+  }
+
+  statusEl.textContent = current.length
+    ? `listening - ${current.length} tone${current.length === 1 ? '' : 's'} detected`
+    : 'listening - no notes';
+}
+
+function getActiveNoteInfos() {
+  return [...activeMidi.entries()]
+    .map(([midi, state]) => midiToInfo(midi, state.amplitude))
+    .sort((a, b) => a.midi - b.midi);
+}
+
+function labelFor(notes, chord) {
+  if (notes.length === 0) return '';
+  if (notes.length === 1) return notes[0].name;
+  if (chord) return chord.root + chord.suffix + (chord.slash ? '/' + chord.slash : '');
+  return notes.map(n => n.name).join('+');
+}
+
+function render() {
+  const notes = getActiveNoteInfos();
+  const chord = identifyChord(notes);
+  const label = labelFor(notes, chord);
+
+  renderChord(notes, chord);
+  renderNotePills(notes, chord?.rootPc ?? notes[0]?.pc);
+
+  if (label && label !== lastLabel) {
+    lastLabel = label;
+    labelHistory.unshift(label);
+    labelHistory = labelHistory.slice(0, 6);
+    renderHistory();
+  }
+}
+
+function renderChord(notes, chord) {
+  chordEl.innerHTML = '';
+
+  if (notes.length === 0) {
+    chordEl.classList.add('dim');
+    chordEl.innerHTML = '<span class="root">-</span>';
+    descEl.textContent = '';
+    return;
+  }
+
+  chordEl.classList.remove('dim');
+
+  if (!chord) {
+    const span = document.createElement('span');
+    span.className = 'root';
+    span.textContent = notes.map(n => n.name).join(' ');
+    chordEl.appendChild(span);
+    descEl.textContent = notes.length === 2 ? 'interval' : 'multi-tone cluster';
+    return;
+  }
+
+  const root = document.createElement('span');
+  root.className = 'root';
+  root.textContent = chord.root;
+  chordEl.appendChild(root);
+
+  if (chord.suffix) {
+    const quality = document.createElement('span');
+    quality.className = 'quality';
+    quality.textContent = chord.suffix;
+    chordEl.appendChild(quality);
+  }
+
+  if (chord.slash) {
+    const slash = document.createElement('span');
+    slash.className = 'slash';
+    slash.textContent = `/${chord.slash}`;
+    chordEl.appendChild(slash);
+  }
+
+  descEl.textContent = chord.desc;
+}
+
+function renderNotePills(notes, rootPc) {
+  const existing = new Map(
+    Array.from(notesRow.children).map(el => [parseInt(el.dataset.midi, 10), el]),
+  );
+  const incoming = new Set(notes.map(note => note.midi));
+
+  for (const [midi, el] of existing) {
+    if (!incoming.has(midi)) {
+      el.classList.remove('visible');
+      setTimeout(() => el.remove(), 150);
+    }
+  }
+
+  notes.forEach((note, idx) => {
+    let pill = existing.get(note.midi);
+    const amp = Math.round(Math.min(note.amplitude, 1) * 100);
+
+    if (!pill) {
+      pill = document.createElement('span');
+      pill.className = 'note-pill';
+      pill.dataset.midi = note.midi;
+      notesRow.appendChild(pill);
+      requestAnimationFrame(() => pill.classList.add('visible'));
+    }
+
+    pill.innerHTML = `${note.name}<span class="oct">${note.octave}</span><span class="amp">${amp}</span>`;
+    pill.classList.toggle('is-root', note.pc === rootPc);
+
+    if (notesRow.children[idx] !== pill) notesRow.insertBefore(pill, notesRow.children[idx]);
+  });
+}
+
+function renderHistory() {
+  historyEl.innerHTML = '';
+  labelHistory.slice(1).forEach((label, i) => {
+    const el = document.createElement('span');
+    el.textContent = label;
+    el.style.opacity = String(0.42 - i * 0.07);
+    historyEl.appendChild(el);
+  });
+}
+
+function resetUi() {
+  activeMidi.clear();
+  labelHistory = [];
+  lastLabel = '';
+  notesRow.innerHTML = '';
+  historyEl.innerHTML = '';
+  chordEl.innerHTML = '<span class="root">-</span>';
+  chordEl.classList.add('dim');
+  descEl.textContent = '';
+  vuBars.forEach(bar => {
+    bar.style.height = '2px';
+    bar.style.background = 'var(--dim)';
+  });
+}
+
+async function start() {
+  generation++;
+  resetUi();
+  statusEl.textContent = 'requesting microphone';
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      channelCount: 1,
+    },
+  });
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  source = audioCtx.createMediaStreamSource(stream);
+  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  muteGain = audioCtx.createGain();
+  muteGain.gain.value = 0;
+
+  rollingChunks = [];
+  rollingSampleCount = 0;
+
+  processor.onaudioprocess = event => {
+    if (!running) return;
+    const input = event.inputBuffer.getChannelData(0);
+    appendAudioChunk(input);
+    updateVu(input);
+  };
+
+  source.connect(processor);
+  processor.connect(muteGain);
+  muteGain.connect(audioCtx.destination);
+
+  running = true;
+  startBtn.textContent = 'stop';
+  startBtn.classList.add('active');
+  statusEl.textContent = 'loading spotify basic pitch model';
+
+  void ensureModel().then(() => {
+    if (!running) return;
+    statusEl.textContent = 'listening - filling analysis window';
+    scheduleInference();
+    analyzeTimer = setInterval(scheduleInference, ANALYZE_EVERY_MS);
+  }).catch(err => {
+    console.error(err);
+    statusEl.textContent = 'could not load basic pitch model';
+  });
+}
+
+async function stop() {
+  generation++;
+  running = false;
+  pendingInference = false;
+
+  clearInterval(analyzeTimer);
+  analyzeTimer = null;
+
+  if (processor) processor.disconnect();
+  if (source) source.disconnect();
+  if (muteGain) muteGain.disconnect();
+  if (stream) stream.getTracks().forEach(track => track.stop());
+  if (audioCtx) await audioCtx.close();
+
+  processor = null;
+  source = null;
+  muteGain = null;
+  stream = null;
+  audioCtx = null;
+  rollingChunks = [];
+  rollingSampleCount = 0;
+
+  startBtn.textContent = 'listen';
+  startBtn.classList.remove('active');
+  statusEl.textContent = 'spotify basic pitch piano analyzer';
+  resetUi();
+}
+
+startBtn.addEventListener('click', async () => {
+  try {
+    if (running) await stop();
+    else await start();
+  } catch (err) {
+    console.error(err);
+    await stop();
+    statusEl.textContent = 'microphone or audio setup failed';
+  }
+});
+</script>
+</body>
+</html>
