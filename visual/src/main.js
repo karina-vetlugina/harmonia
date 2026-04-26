@@ -6,6 +6,7 @@ const app = document.getElementById('app');
 
 let piano = null;
 let playground = null;
+let showIntroOverlay = true;
 const activeNotesByMidi = new Map();
 const activeMidiOrder = [];
 let activeHand = 'L';
@@ -356,7 +357,7 @@ function setActiveHand(nextHand) {
   render();
 }
 
-function render() {
+function clearInteractiveState() {
   if (piano) {
     piano.destroy();
     piano = null;
@@ -365,8 +366,13 @@ function render() {
     playground.destroy();
     playground = null;
   }
+}
+
+function renderPractice() {
+  clearInteractiveState();
   app.innerHTML = `
     <main class="practice-screen">
+      <img class="app-logo" src="/logo.svg" alt="Harmonia logo" />
       <section class="keyboard-section">
         <div class="hand-selector">
           <button class="hand-button ${activeHand === 'L' ? 'active' : ''}" data-hand="L">Left hand</button>
@@ -390,10 +396,29 @@ function render() {
           <div id="designer-stage" class="designer-stage"></div>
         </div>
       </section>
+      ${
+        showIntroOverlay
+          ? `
+      <div class="intro-overlay">
+        <section class="landing-card">
+          <img class="landing-hero" src="/nav.svg" alt="Harmonia landing" />
+          <div class="landing-actions">
+            <button id="start-practice" class="landing-start" type="button">Start</button>
+          </div>
+        </section>
+      </div>
+      `
+          : ''
+      }
     </main>
   `;
   app.querySelectorAll('.hand-button').forEach((button) => {
     button.addEventListener('click', () => setActiveHand(button.dataset.hand));
+  });
+  const startBtn = document.getElementById('start-practice');
+  startBtn?.addEventListener('click', () => {
+    showIntroOverlay = false;
+    render();
   });
   piano = mountPracticePiano(document.getElementById('piano-host'), {
     canActivateNote,
@@ -402,6 +427,10 @@ function render() {
   });
   playground = mountDesignerPlayground(document.getElementById('designer-stage'));
   updateFeedback();
+}
+
+function render() {
+  renderPractice();
 }
 
 window.addEventListener('beforeunload', () => {

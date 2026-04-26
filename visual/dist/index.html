@@ -3,23 +3,82 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inria+Serif:wght@300;400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <title>Harmonia</title>
   <style>
+    :root {
+      --edge-gap: 20px;
+      --pink-light: #F1ADFF;
+      --pink-dark: #AC2A9E;
+    }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; }
     body {
       background: #08090d;
       color: #f5f2ff;
-      font-family: Inter, system-ui, sans-serif;
+      font-family: "Poppins", sans-serif;
       height: 100dvh;
       min-height: 100dvh;
+    }
+    h1, h2, h3 {
+      font-family: "Inria Serif", serif;
+    }
+    p, button, input, select, textarea, .small {
+      font-family: "Poppins", sans-serif;
     }
     #app {
       height: 100dvh;
       min-height: 100dvh;
       padding: 0;
     }
+    .intro-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(10, 12, 18, 0.42);
+      backdrop-filter: blur(10px);
+      z-index: 6;
+    }
+    .landing-card {
+      position: relative;
+      width: fit-content;
+      max-width: min(100%, calc(100vw - 48px));
+      border-radius: 26px;
+      overflow: hidden;
+    }
+    .landing-hero {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+    }
+    .landing-actions {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .landing-start {
+      position: absolute;
+      left: 30px;
+      bottom: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      color: #482f47;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 11px 42px;
+      font-family: "Poppins", sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      pointer-events: auto;
+    }
     .practice-screen {
+      position: relative;
       width: 100%;
       height: 100dvh;
       min-height: 100dvh;
@@ -28,6 +87,7 @@
       overflow: hidden;
     }
     .keyboard-section {
+      position: relative;
       display: grid;
       align-items: center;
       justify-items: center;
@@ -35,6 +95,16 @@
       gap: 10px;
       min-height: 0;
       overflow: hidden;
+    }
+    .app-logo {
+      position: absolute;
+      top: var(--edge-gap);
+      left: var(--edge-gap);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      pointer-events: none;
+      z-index: 4;
     }
     .hand-selector {
       display: inline-flex;
@@ -53,9 +123,13 @@
       cursor: pointer;
     }
     .hand-button.active {
-      border-color: rgba(196, 201, 212, 0.55);
-      background: linear-gradient(180deg, rgba(184, 190, 202, 0.22), rgba(128, 134, 146, 0.12));
-      box-shadow: 0 0 12px rgba(184, 190, 202, 0.18);
+      border-color: color-mix(in srgb, var(--pink-dark) 72%, transparent);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--pink-light) 32%, transparent),
+        color-mix(in srgb, var(--pink-dark) 20%, transparent)
+      );
+      box-shadow: 0 0 14px color-mix(in srgb, var(--pink-dark) 30%, transparent);
     }
     .feedback-section {
       position: relative;
@@ -79,19 +153,19 @@
     }
     .target-line {
       position: absolute;
-      top: 32px;
-      bottom: 32px;
+      top: var(--edge-gap);
+      bottom: var(--edge-gap);
       width: 2px;
       background: rgba(255, 255, 255, 0.45);
       z-index: 1;
       transition: background 120ms ease, box-shadow 120ms ease;
     }
     .target-line.target-line--correct {
-      background: rgba(105, 255, 185, 0.95);
-      box-shadow: 0 0 10px rgba(105, 255, 185, 0.6);
+      background: #67ffb2;
+      box-shadow: 0 0 10px rgba(103, 255, 178, 0.6);
     }
     .target-line.target-line--incorrect {
-      background: rgba(255, 98, 98, 0.95);
+      background: #ff6262;
       box-shadow: 0 0 10px rgba(255, 98, 98, 0.5);
     }
     .target-line--pink {
@@ -163,9 +237,13 @@
       cursor: pointer;
     }
     button.primary {
-      border-color: rgba(117, 255, 193, 0.65);
-      background: linear-gradient(180deg, rgba(117,255,193,0.28), rgba(117,255,193,0.11));
-      box-shadow: 0 0 16px rgba(117, 255, 193, 0.22);
+      border-color: color-mix(in srgb, var(--pink-dark) 72%, transparent);
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--pink-light) 32%, transparent),
+        color-mix(in srgb, var(--pink-dark) 20%, transparent)
+      );
+      box-shadow: 0 0 16px color-mix(in srgb, var(--pink-dark) 28%, transparent);
     }
     button.ghost {
       border-color: rgba(196, 187, 255, 0.35);
@@ -184,8 +262,8 @@
     .progress > span {
       display: block;
       height: 100%;
-      background: linear-gradient(90deg, #ff6dc7 0%, #67ffb2 60%, #8e74ff 100%);
-      box-shadow: 0 0 12px rgba(137, 128, 255, 0.35);
+      background: linear-gradient(90deg, var(--pink-light) 0%, var(--pink-dark) 100%);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--pink-dark) 36%, transparent);
     }
     .overlay-root,
     .cue-layer {
@@ -213,8 +291,8 @@
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: #65ffc6;
-      box-shadow: 0 0 12px rgba(101, 255, 198, 0.72);
+      background: var(--pink-light);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--pink-light) 70%, transparent);
       cursor: nwse-resize;
     }
     .sim-dot {
@@ -238,7 +316,7 @@
       z-index: 2;
     }
     .heat-orb.success {
-      box-shadow: 0 0 32px rgba(105, 255, 185, 0.7);
+      box-shadow: 0 0 32px color-mix(in srgb, var(--pink-light) 70%, transparent);
       animation: pulse 0.8s ease-in-out infinite alternate;
     }
     @keyframes pulse {
@@ -251,8 +329,8 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-OvBJW9BV.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CaqpzQzy.css">
+  <script type="module" crossorigin src="/assets/index-CNCUxOxh.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DSypGLkC.css">
 </head>
 <body>
   <div id="app"></div>
