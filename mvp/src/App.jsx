@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import song from "../viva-la-vida.json";
+import { mountChordHeatmap } from "./visual-feedback/mountChordHeatmap.js";
 
 const NOTE_ORDER = [
   "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3",
@@ -75,6 +76,12 @@ const HARMONICS = [
   { ratio: 1, gain: 0.5 }, { ratio: 2, gain: 0.25 }, { ratio: 3, gain: 0.12 },
   { ratio: 4, gain: 0.07 }, { ratio: 5, gain: 0.04 }, { ratio: 6, gain: 0.02 },
 ];
+
+// 1-based chord order for practice. Change this to add spaced repetition,
+// e.g. [1, 2, 1, 2, 3, 2, 3, 4, ...].
+const PRACTICE_SEQUENCE = [1, 2, 1, 2, 3, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8];
+const IDLE_PULSE_DELAY_MS = 6000;
+const TARGET_CHORD_MS = 700;
 
 function noteDecayTime(midi) {
   return 2.5 * 2 ** (-(midi - 60) / 36) + 0.4;
@@ -267,6 +274,10 @@ function Piano({ activeNotes, onNoteDown, onNoteUp, keyboardLayout }) {
 export default function App() {
   const keyboardLayout = useMemo(buildKeyboardData, []);
   const leftHandGroups = useMemo(() => buildLeftHandGroups(song.notes), []);
+  const practiceGroups = useMemo(
+    () => PRACTICE_SEQUENCE.map((step) => leftHandGroups[step - 1]).filter(Boolean),
+    [leftHandGroups],
+  );
 
   const [activeNotes, setActiveNotes] = useState(() => new Set());
   const [phase, setPhase] = useState("idle");
@@ -276,25 +287,112 @@ export default function App() {
   const chordIndexRef = useRef(0);
   const pressedNotesRef = useRef(new Set()); // midi numbers pressed this attempt
   const evalTimerRef = useRef(null);
-  const replayTimerRef = useRef(null);
+  const idlePulseTimerRef = useRef(null);
   const playbackTimersRef = useRef([]);
   const hasStartedRef = useRef(false);
   const pressedKeyboardKeysRef = useRef(new Set());
+
+  const heatmapHostRef = useRef(null);
+  const heatmapRef = useRef(null);
+  const heatmapEnabledRef = useRef(true);
+  const activeNotesByMidiRef = useRef(new Map());
+  const activeMidiOrderRef = useRef([]);
 
   const { playNote, stopNote, stopAll, unlockAudio } = usePianoAudio(keyboardLayout);
 
   useEffect(() => { chordIndexRef.current = chordIndex; }, [chordIndex]);
 
+  useEffect(() => {
+    if (!heatmapEnabledRef.current) return undefined;
+    if (!heatmapHostRef.current) return undefined;
+    if (heatmapRef.current) return undefined;
+    const mounted = mountChordHeatmap(heatmapHostRef.current);
+    if (!mounted) {
+      heatmapEnabledRef.current = false;
+      return undefined;
+    }
+    heatmapRef.current = mounted;
+    return () => {
+      try {
+        heatmapRef.current?.destroy();
+      } finally {
+        heatmapRef.current = null;
+      }
+    };
+  }, []);
+
+  const pushHeatmapUpdate = useCallback(() => {
+    const hm = heatmapRef.current;
+    if (!hm) return;
+    if (phaseRef.current !== "waiting") {
+      hm.clear();
+      return;
+    }
+    const group = practiceGroups[chordIndexRef.current];
+    if (!group || group.notes.length < 2) {
+      hm.clear();
+      return;
+    }
+    const activeMidis = activeMidiOrderRef.current.filter((midi) => activeNotesByMidiRef.current.has(midi));
+    const activeOrdered = activeMidis.slice(-2).map((midi) => ({ midi }));
+    hm.updateAttempt({
+      targetNotes: group.notes.map((n) => ({ midi: n.midi })),
+      activeNotesOrdered: activeOrdered,
+    });
+  }, [practiceGroups]);
+
+  useEffect(() => {
+    if (phase !== "waiting") {
+      heatmapRef.current?.clear();
+      activeNotesByMidiRef.current = new Map();
+      activeMidiOrderRef.current = [];
+    }
+  }, [phase]);
+
+  const pulseTargetChord = useCallback((index) => {
+    const group = practiceGroups[index];
+    if (!group) return;
+
+    const notes = group.notes.map((n) => n.pitch);
+    notes.forEach((note) => void playNote(note));
+
+    const t = setTimeout(() => {
+      notes.forEach((note) => stopNote(note));
+    }, TARGET_CHORD_MS);
+    playbackTimersRef.current.push(t);
+  }, [practiceGroups, playNote, stopNote]);
+
+  const clearIdlePulse = useCallback(() => {
+    clearTimeout(idlePulseTimerRef.current);
+    idlePulseTimerRef.current = null;
+  }, []);
+
+  const scheduleIdlePulse = useCallback((index) => {
+    clearTimeout(idlePulseTimerRef.current);
+    idlePulseTimerRef.current = setTimeout(() => {
+      if (phaseRef.current !== "waiting") return;
+      if (activeNotesByMidiRef.current.size > 0) {
+        scheduleIdlePulse(index);
+        return;
+      }
+      pulseTargetChord(index);
+      scheduleIdlePulse(index);
+    }, IDLE_PULSE_DELAY_MS);
+  }, [pulseTargetChord]);
+
   // Play the target chord, then enter 'waiting'
   const playTargetChord = useCallback((index) => {
-    const group = leftHandGroups[index];
+    const group = practiceGroups[index];
     if (!group) return;
 
     playbackTimersRef.current.forEach(clearTimeout);
     playbackTimersRef.current = [];
     clearTimeout(evalTimerRef.current);
-    clearTimeout(replayTimerRef.current);
+    clearIdlePulse();
     pressedNotesRef.current = new Set();
+    activeNotesByMidiRef.current = new Map();
+    activeMidiOrderRef.current = [];
+    heatmapRef.current?.clear();
 
     phaseRef.current = "target";
     setPhase("target");
@@ -306,10 +404,12 @@ export default function App() {
       notes.forEach((note) => stopNote(note));
       phaseRef.current = "waiting";
       setPhase("waiting");
-    }, 700);
+      heatmapRef.current?.clear();
+      scheduleIdlePulse(index);
+    }, TARGET_CHORD_MS);
 
     playbackTimersRef.current = [t];
-  }, [leftHandGroups, playNote, stopNote]);
+  }, [practiceGroups, playNote, stopNote, clearIdlePulse, scheduleIdlePulse]);
 
   // Auto-play whenever chordIndex changes (after first interaction)
   useEffect(() => {
@@ -326,7 +426,7 @@ export default function App() {
     if (phaseRef.current !== "waiting") return;
 
     const index = chordIndexRef.current;
-    const group = leftHandGroups[index];
+    const group = practiceGroups[index];
     if (!group) return;
 
     const pressed = pressedNotesRef.current;
@@ -335,16 +435,19 @@ export default function App() {
     if (correct) {
       phaseRef.current = "success";
       setPhase("success");
+      heatmapRef.current?.clear();
 
       // Play the chord so user hears confirmation
       const notes = group.notes.map((n) => n.pitch);
       notes.forEach((note) => void playNote(note));
 
-      const isLast = index === leftHandGroups.length - 1;
+      clearIdlePulse();
+      const isLast = index === practiceGroups.length - 1;
       const t = setTimeout(() => {
         if (isLast) {
           phaseRef.current = "complete";
           setPhase("complete");
+          heatmapRef.current?.clear();
         } else {
           chordIndexRef.current = index + 1;
           setChordIndex(index + 1);
@@ -352,11 +455,11 @@ export default function App() {
       }, 600);
       playbackTimersRef.current.push(t);
     } else {
-      // Wrong: schedule replay only after user pauses
+      // Wrong: keep this target alive through the idle pulse loop.
       pressedNotesRef.current = new Set();
-      replayTimerRef.current = setTimeout(() => playTargetChord(index), 1200);
+      scheduleIdlePulse(index);
     }
-  }, [leftHandGroups, playNote, playTargetChord]);
+  }, [practiceGroups, playNote, clearIdlePulse, scheduleIdlePulse]);
 
   const handleNoteDown = useCallback(
     (note) => {
@@ -371,20 +474,27 @@ export default function App() {
         void playNote(note);
         hasStartedRef.current = true;
         phaseRef.current = "target";
+        heatmapRef.current?.clear();
         const t = setTimeout(() => playTargetChord(chordIndexRef.current), 400);
         playbackTimersRef.current.push(t);
         return;
       }
 
       if (current === "waiting") {
-        // Cancel any pending replay — user is still trying
-        clearTimeout(replayTimerRef.current);
+        // Cancel the idle pulse while the user is still trying.
+        clearIdlePulse();
         pressedNotesRef.current.add(noteToMidi(note));
+        const midi = noteToMidi(note);
+        activeNotesByMidiRef.current.set(midi, { midi });
+        const idx = activeMidiOrderRef.current.indexOf(midi);
+        if (idx >= 0) activeMidiOrderRef.current.splice(idx, 1);
+        activeMidiOrderRef.current.push(midi);
         setActiveNotes((prev) => new Set(prev).add(note));
         void playNote(note);
+        pushHeatmapUpdate();
       }
     },
-    [unlockAudio, playNote, evaluateAttempt, playTargetChord],
+    [unlockAudio, playNote, playTargetChord, pushHeatmapUpdate, clearIdlePulse],
   );
 
   const handleNoteUp = useCallback(
@@ -398,12 +508,22 @@ export default function App() {
       stopNote(note);
 
       if (phaseRef.current === "waiting") {
+        const midi = noteToMidi(note);
+        activeNotesByMidiRef.current.delete(midi);
+        const idx = activeMidiOrderRef.current.indexOf(midi);
+        if (idx >= 0) activeMidiOrderRef.current.splice(idx, 1);
+        if (activeNotesByMidiRef.current.size === 0) {
+          heatmapRef.current?.clear();
+          scheduleIdlePulse(chordIndexRef.current);
+        } else {
+          pushHeatmapUpdate();
+        }
         // Debounce eval on release — commit when hands lift
         clearTimeout(evalTimerRef.current);
         evalTimerRef.current = setTimeout(evaluateAttempt, 300);
       }
     },
-    [stopNote, evaluateAttempt],
+    [stopNote, evaluateAttempt, pushHeatmapUpdate, scheduleIdlePulse],
   );
 
   useEffect(() => {
@@ -428,6 +548,9 @@ export default function App() {
       pressedKeyboardKeysRef.current.clear();
       setActiveNotes(new Set());
       stopAll();
+      activeNotesByMidiRef.current = new Map();
+      activeMidiOrderRef.current = [];
+      heatmapRef.current?.clear();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -443,11 +566,11 @@ export default function App() {
   useEffect(() => () => {
     playbackTimersRef.current.forEach(clearTimeout);
     clearTimeout(evalTimerRef.current);
-    clearTimeout(replayTimerRef.current);
+    clearIdlePulse();
   }, []);
 
-  const currentGroup = leftHandGroups[chordIndex] ?? leftHandGroups.at(-1);
   const progress = chordIndex + (phase === "complete" ? 1 : 0);
+  const progressPct = `${(progress / practiceGroups.length) * 100}%`;
 
   const statusText = {
     idle: "Press any key to start",
@@ -468,25 +591,21 @@ export default function App() {
           </p>
         </div>
         <div className="target-card">
-          <small>{progress}/{leftHandGroups.length}</small>
+          <small>{progress}/{practiceGroups.length}</small>
         </div>
       </section>
 
       <section className="workspace">
         <p className={`status ${phase === "success" ? "status--success" : ""}`}>{statusText}</p>
         {phase === "success" && <div className="countdown-bar" key={chordIndex} />}
-        <div className="chord-steps">
-          {leftHandGroups.map((_, i) => (
-            <span
-              key={i}
-              className={[
-                "chord-step",
-                i < progress ? "done" : "",
-                i === chordIndex && phase !== "complete" ? "current" : "",
-                i === chordIndex && phase === "success" ? "success" : "",
-              ].filter(Boolean).join(" ")}
-            />
-          ))}
+        <div className="heatmap-stage" aria-hidden="true">
+          <div className="heatmap-host" ref={heatmapHostRef} />
+        </div>
+        <div className="chord-progress" aria-hidden="true">
+          <div
+            className={`chord-progress-fill ${phase === "success" ? "chord-progress-fill--success" : ""}`}
+            style={{ width: progressPct }}
+          />
         </div>
       </section>
 

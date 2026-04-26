@@ -25,30 +25,33 @@ button {
 .app-shell {
   width: min(900px, 100%);
   margin: 0 auto;
-  padding: 28px 18px 22px;
+  padding: 12px 18px 22px;
 }
 
-.practice-card,
-.workspace {
+.practice-card {
   border: 1px solid rgba(255, 255, 255, 0.09);
   background: rgba(9, 12, 18, 0.72);
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(18px);
 }
 
+.workspace {
+  background: transparent;
+}
+
 .practice-card {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
-  border-radius: 24px;
-  padding: 22px;
+  border-radius: 16px;
+  padding: 10px 14px;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   color: #9eecc1;
-  font-size: 0.78rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -56,8 +59,8 @@ button {
 
 h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 4.6rem);
-  line-height: 0.92;
+  font-size: clamp(1.05rem, 2.5vw, 1.65rem);
+  line-height: 1;
 }
 
 .subtitle,
@@ -67,17 +70,18 @@ h1 {
 }
 
 .subtitle {
-  margin: 10px 0 0;
+  margin: 4px 0 0;
+  font-size: 0.78rem;
 }
 
 .target-card {
   display: grid;
   gap: 6px;
-  min-width: 240px;
-  padding: 18px;
-  border: 1px solid rgba(158, 236, 193, 0.2);
-  border-radius: 18px;
-  background: rgba(158, 236, 193, 0.07);
+  min-width: auto;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(158, 236, 193, 0.08);
 }
 
 .target-card span {
@@ -92,54 +96,52 @@ h1 {
 }
 
 .workspace {
-  margin-top: 18px;
-  border-radius: 28px;
-  padding: 18px;
+  margin-top: 8px;
+  padding: 0 0 18px;
+}
+
+.heatmap-stage {
+  width: min(100%, 560px, calc(100dvh - 250px));
+  aspect-ratio: 1 / 1;
+  margin-top: 10px;
+  margin-inline: auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.heatmap-host {
+  width: 100%;
+  height: 100%;
 }
 
 .status {
   min-height: 24px;
-  margin: 4px 0 0;
+  margin: 0;
   text-align: center;
-  font-size: 1rem;
+  font-size: 0.82rem;
   letter-spacing: 0.06em;
 }
 
-.chord-steps {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 16px;
+.chord-progress {
+  width: min(100%, 560px, calc(100dvh - 250px));
+  height: 5px;
+  margin: 14px auto 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.chord-step {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  transition: background 0.2s ease, transform 0.2s ease;
+.chord-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(158, 236, 193, 0.5);
+  transition: width 0.28s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.chord-step.done {
-  background: rgba(158, 236, 193, 0.35);
-}
-
-.chord-step.current {
+.chord-progress-fill--success {
   background: #9eecc1;
-  transform: scale(1.35);
-}
-
-.chord-step.success {
-  background: #9eecc1;
-  transform: scale(1.6);
-  box-shadow: 0 0 10px rgba(158, 236, 193, 0.7);
-  animation: step-pulse 0.4s ease-out;
-}
-
-@keyframes step-pulse {
-  0%   { transform: scale(1); box-shadow: none; }
-  50%  { transform: scale(1.9); box-shadow: 0 0 18px rgba(158, 236, 193, 0.9); }
-  100% { transform: scale(1.6); box-shadow: 0 0 10px rgba(158, 236, 193, 0.7); }
+  box-shadow: 0 0 16px rgba(158, 236, 193, 0.65);
 }
 
 .status--success {
@@ -243,7 +245,7 @@ h1 {
 @media (max-width: 940px) {
   .practice-card {
     align-items: stretch;
-    flex-direction: column;
+    flex-direction: row;
   }
 }
 
@@ -254,7 +256,7 @@ h1 {
 
   .practice-card,
   .workspace {
-    padding: 14px;
+    padding-inline: 10px;
   }
 
   .piano {

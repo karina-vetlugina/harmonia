@@ -10,6 +10,22 @@ let showIntroOverlay = true;
 const activeNotesByMidi = new Map();
 const activeMidiOrder = [];
 let activeHand = 'L';
+let phase = 'idle';
+let chordIndex = 0;
+let evalTimer = null;
+let idlePulseTimer = null;
+const playbackStops = [];
+const pressedAttemptMidis = new Set();
+
+// 1-based target order. Edit these for spaced repetition.
+const LEFT_HAND_SEQUENCE = [1, 2, 1, 2, 3, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8];
+const RIGHT_HAND_SEQUENCE = null; // null means natural song order.
+const TARGET_CHORD_MS = 700;
+const START_TARGET_DELAY_MS = 400;
+const EVAL_DELAY_MS = 300;
+const SUCCESS_ADVANCE_MS = 600;
+const IDLE_PULSE_DELAY_MS = 6000;
+
 const leftHandNotes = vivaLaVidaSongNotes.notes
   .filter((n) => n.hand === 'L')
   .sort((a, b) => a.t - b.t);
@@ -21,6 +37,40 @@ const firstLeftTarget = leftHandNotes
   .filter((n) => Math.abs(n.t - firstLeftT) <= 0.03)
   .sort((a, b) => a.midi - b.midi);
 const firstRightTarget = rightHandNotes[0] ? [rightHandNotes[0]] : [];
+
+function buildLeftHandGroups(notes) {
+  const groups = new Map();
+  notes
+    .filter((n) => n.hand === 'L')
+    .sort((a, b) => a.t - b.t || a.midi - b.midi)
+    .forEach((n) => {
+      const key = n.t.toFixed(3);
+      if (!groups.has(key)) groups.set(key, { t: n.t, notes: [] });
+      groups.get(key).notes.push(n);
+    });
+  return Array.from(groups.values());
+}
+
+function buildRightHandGroups(notes) {
+  return notes
+    .filter((n) => n.hand === 'R')
+    .sort((a, b) => a.t - b.t || a.midi - b.midi)
+    .map((n) => ({ t: n.t, notes: [n] }));
+}
+
+function buildPracticeGroups(groups, sequence) {
+  if (!Array.isArray(sequence) || sequence.length === 0) return groups;
+  return sequence.map((step) => groups[step - 1]).filter(Boolean);
+}
+
+const leftHandGroups = buildLeftHandGroups(vivaLaVidaSongNotes.notes);
+const rightHandGroups = buildRightHandGroups(vivaLaVidaSongNotes.notes);
+const leftPracticeGroups = buildPracticeGroups(leftHandGroups, LEFT_HAND_SEQUENCE);
+const rightPracticeGroups = buildPracticeGroups(rightHandGroups, RIGHT_HAND_SEQUENCE);
+
+function practiceGroupsForHand() {
+  return activeHand === 'L' ? leftPracticeGroups : rightPracticeGroups;
+}
 
 function statusForDistance(distance) {
   if (distance === 0) return 'correct';
@@ -220,7 +270,8 @@ function getFeedbackNotesForHand() {
 }
 
 function currentTarget() {
-  return activeHand === 'L' ? firstLeftTarget : firstRightTarget;
+  const fallback = activeHand === 'L' ? firstLeftTarget : firstRightTarget;
+  return practiceGroupsForHand()[chordIndex]?.notes ?? fallback;
 }
 
 function currentTargetMidis() {
@@ -236,7 +287,128 @@ function activeDebugString() {
   return active.length ? active.map((n) => n.pitch).join(' + ') : '-';
 }
 
+function notesMatchTarget(target, notes) {
+  if (target.length !== notes.length) return false;
+  const played = new Set(notes.map((n) => n.midi));
+  return target.every((n) => played.has(n.midi));
+}
+
+function clearActiveAttempt() {
+  activeNotesByMidi.clear();
+  activeMidiOrder.length = 0;
+  pressedAttemptMidis.clear();
+}
+
+function stopPlaybackTimers() {
+  while (playbackStops.length) {
+    const stop = playbackStops.pop();
+    if (stop) stop();
+  }
+}
+
+function clearIdlePulse() {
+  window.clearTimeout(idlePulseTimer);
+  idlePulseTimer = null;
+}
+
+function setPhase(nextPhase) {
+  phase = nextPhase;
+  updateProgressUi();
+}
+
+function pulseTargetChord(index = chordIndex) {
+  if (!piano) return;
+  const group = practiceGroupsForHand()[index];
+  if (!group) return;
+  const feedbackPlayground = document.querySelector('.feedback-playground');
+  feedbackPlayground?.classList.add('feedback-playground--sounding');
+  const stop = piano.playNotes(group.notes.map((n) => n.pitch), TARGET_CHORD_MS);
+  playbackStops.push(stop);
+  const visualPulseTimer = window.setTimeout(() => {
+    feedbackPlayground?.classList.remove('feedback-playground--sounding');
+  }, TARGET_CHORD_MS);
+  playbackStops.push(() => {
+    window.clearTimeout(visualPulseTimer);
+    feedbackPlayground?.classList.remove('feedback-playground--sounding');
+  });
+}
+
+function scheduleIdlePulse(index = chordIndex) {
+  clearIdlePulse();
+  idlePulseTimer = window.setTimeout(() => {
+    if (phase !== 'waiting') return;
+    if (activeNotesByMidi.size > 0) {
+      scheduleIdlePulse(index);
+      return;
+    }
+    pulseTargetChord(index);
+    scheduleIdlePulse(index);
+  }, IDLE_PULSE_DELAY_MS);
+}
+
+function playTargetChord(index = chordIndex) {
+  const group = practiceGroupsForHand()[index];
+  if (!group) return;
+
+  stopPlaybackTimers();
+  window.clearTimeout(evalTimer);
+  clearIdlePulse();
+  clearActiveAttempt();
+  setPhase('target');
+  updateFeedback();
+
+  pulseTargetChord(index);
+  const t = window.setTimeout(() => {
+    setPhase('waiting');
+    updateFeedback();
+    scheduleIdlePulse(index);
+  }, TARGET_CHORD_MS);
+  playbackStops.push(() => window.clearTimeout(t));
+}
+
+function startPracticeIfNeeded() {
+  if (phase !== 'idle') return false;
+  setPhase('target');
+  const t = window.setTimeout(() => playTargetChord(chordIndex), START_TARGET_DELAY_MS);
+  playbackStops.push(() => window.clearTimeout(t));
+  return true;
+}
+
+function evaluateAttempt() {
+  if (phase !== 'waiting') return;
+  const groups = practiceGroupsForHand();
+  const group = groups[chordIndex];
+  if (!group) return;
+  const correct = group.notes.every((n) => pressedAttemptMidis.has(n.midi));
+
+  if (correct) {
+    clearIdlePulse();
+    setPhase('success');
+    updateFeedback();
+    const isLast = chordIndex === groups.length - 1;
+    const t = window.setTimeout(() => {
+      if (isLast) {
+        setPhase('complete');
+        updateFeedback();
+        return;
+      }
+      chordIndex += 1;
+      playTargetChord(chordIndex);
+    }, SUCCESS_ADVANCE_MS);
+    playbackStops.push(() => window.clearTimeout(t));
+    return;
+  }
+
+  pressedAttemptMidis.clear();
+  scheduleIdlePulse(chordIndex);
+}
+
 function handleNoteDown(note) {
+  if (phase === 'complete') return;
+  if (startPracticeIfNeeded()) return;
+  if (phase !== 'waiting') return;
+  clearIdlePulse();
+  pressedAttemptMidis.add(note.midi);
   activeNotesByMidi.set(note.midi, note);
   const idx = activeMidiOrder.indexOf(note.midi);
   if (idx >= 0) activeMidiOrder.splice(idx, 1);
@@ -248,10 +420,20 @@ function handleNoteUp(note) {
   activeNotesByMidi.delete(note.midi);
   const idx = activeMidiOrder.indexOf(note.midi);
   if (idx >= 0) activeMidiOrder.splice(idx, 1);
+  if (phase === 'waiting') {
+    if (activeNotesByMidi.size === 0) {
+      scheduleIdlePulse(chordIndex);
+      window.clearTimeout(evalTimer);
+      evalTimer = window.setTimeout(evaluateAttempt, EVAL_DELAY_MS);
+    } else {
+      window.clearTimeout(evalTimer);
+    }
+  }
   updateFeedback();
 }
 
 function canActivateNote(note) {
+  if (phase === 'target' || phase === 'success' || phase === 'complete') return false;
   if (activeNotesByMidi.has(note.midi)) return true;
   return activeNotesByMidi.size < getMaxActiveNotesForHand();
 }
@@ -267,6 +449,7 @@ function setTargetLineState(selector, state) {
 function updateFeedback() {
   if (!playground) return;
   const debug = document.getElementById('debug');
+  const feedbackPlayground = document.querySelector('.feedback-playground');
   const target = currentTarget();
   const targetMidis = currentTargetMidis();
   const targetNotes = currentTargetNotes();
@@ -274,6 +457,10 @@ function updateFeedback() {
   const physicallyActiveCount = activeNotesByMidi.size;
   const feedbackCount = feedbackNotes.length;
   const isTruncated = physicallyActiveCount > feedbackCount;
+  const wholeTargetCorrect = phase === 'success' || notesMatchTarget(target, feedbackNotes);
+  if (feedbackPlayground) {
+    feedbackPlayground.classList.toggle('feedback-playground--correct', wholeTargetCorrect);
+  }
   if (feedbackNotes.length === 0) {
     setTargetLineState('.target-line--pink', 'neutral');
     setTargetLineState('.target-line--orange', 'neutral');
@@ -308,7 +495,7 @@ function updateFeedback() {
     return;
   }
   if (activeHand === 'L') {
-    const comparison = getTwoNoteComparison(firstLeftTarget, feedbackNotes);
+    const comparison = getTwoNoteComparison(target, feedbackNotes);
     const showPink = comparison[0].playedMidi != null;
     const showOrange = comparison[1].playedMidi != null;
     setTargetLineState('.target-line--pink', showPink ? (comparison[0].distance === 0 ? 'correct' : 'incorrect') : 'neutral');
@@ -351,10 +538,34 @@ function updateFeedback() {
 
 function setActiveHand(nextHand) {
   if (nextHand === activeHand) return;
+  stopPlaybackTimers();
+  window.clearTimeout(evalTimer);
+  clearIdlePulse();
   activeHand = nextHand;
-  activeNotesByMidi.clear();
-  activeMidiOrder.length = 0;
+  phase = 'idle';
+  chordIndex = 0;
+  clearActiveAttempt();
   render();
+}
+
+function updateProgressUi() {
+  const status = document.getElementById('status');
+  const progressText = document.getElementById('progress-text');
+  const progressFill = document.getElementById('progress-fill');
+  const progress = chordIndex + (phase === 'complete' ? 1 : 0);
+  const total = practiceGroupsForHand().length;
+  const pct = total ? (progress / total) * 100 : 0;
+  const statusText = {
+    idle: 'Press any key to start',
+    target: 'Listen...',
+    waiting: 'Your turn',
+    success: 'Nice - next up',
+    complete: 'Complete'
+  }[phase] ?? '';
+
+  if (status) status.textContent = statusText;
+  if (progressText) progressText.textContent = `${progress}/${total}`;
+  if (progressFill) progressFill.style.width = `${pct}%`;
 }
 
 function clearInteractiveState() {
@@ -381,6 +592,11 @@ function renderPractice() {
         <div id="piano-host"></div>
       </section>
       <section class="feedback-section">
+        <div class="practice-progress">
+          <p class="small" id="status"></p>
+          <p class="small" id="progress-text"></p>
+          <div class="progress"><span id="progress-fill"></span></div>
+        </div>
         <p class="small" id="debug"></p>
         <div class="feedback-playground">
           ${
@@ -426,6 +642,7 @@ function renderPractice() {
     onNoteUp: handleNoteUp
   });
   playground = mountDesignerPlayground(document.getElementById('designer-stage'));
+  updateProgressUi();
   updateFeedback();
 }
 
@@ -434,6 +651,9 @@ function render() {
 }
 
 window.addEventListener('beforeunload', () => {
+  stopPlaybackTimers();
+  window.clearTimeout(evalTimer);
+  clearIdlePulse();
   if (piano) piano.destroy();
   if (playground) playground.destroy();
 });
