@@ -4,6 +4,8 @@ import { RippleStore } from '../rippleModel.js';
 
 const PINK = { r: 232, g: 112, b: 168 };
 const ORANGE = { r: 212, g: 132, b: 96 };
+const MIN_KEYBOARD_MIDI = 52;
+const MAX_KEYBOARD_MIDI = 77;
 
 export function mountDesignerPlayground(stageEl) {
   const pinkCanvas = document.createElement('canvas');
@@ -36,6 +38,9 @@ export function mountDesignerPlayground(stageEl) {
   let bufH = 1;
   let lastD1 = 0;
   let lastD2 = 0;
+  let targetMidi1 = 55;
+  let targetMidi2 = 60;
+  let showFirst = true;
   let hasSecond = false;
 
   function draw() {
@@ -60,16 +65,29 @@ export function mountDesignerPlayground(stageEl) {
 
   function applyDistances() {
     const spread = 0.22;
-    const d1 = Math.max(-3, Math.min(3, lastD1));
-    const d2 = Math.max(-3, Math.min(3, lastD2));
-    const x1 = 0.5 + (d1 / 3) * spread;
-    const x2 = 0.5 + (d2 / 3) * spread;
+    function normalizeDistance(distance, targetMidi) {
+      if (distance === 0) return 0;
+      if (distance < 0) {
+        const maxLeftDistance = Math.max(1, targetMidi - MIN_KEYBOARD_MIDI);
+        return Math.max(-1, Math.min(1, distance / maxLeftDistance));
+      }
+      const maxRightDistance = Math.max(1, MAX_KEYBOARD_MIDI - targetMidi);
+      return Math.max(-1, Math.min(1, distance / maxRightDistance));
+    }
+    const n1 = normalizeDistance(lastD1, targetMidi1);
+    const n2 = normalizeDistance(lastD2, targetMidi2);
+    const x1 = 1 / 3 + n1 * spread;
+    const x2 = 2 / 3 + n2 * spread;
     const y1 = 0.54;
     const y2 = 0.58;
-    const p1 = toWorld(x1, y1);
-    pinkRipples.replaceAll([
-      { nx: x1, ny: y1, x: p1.x, y: p1.y, r: PINK.r, g: PINK.g, b: PINK.b, createdAt: Date.now() }
-    ]);
+    if (showFirst) {
+      const p1 = toWorld(x1, y1);
+      pinkRipples.replaceAll([
+        { nx: x1, ny: y1, x: p1.x, y: p1.y, r: PINK.r, g: PINK.g, b: PINK.b, createdAt: Date.now() }
+      ]);
+    } else {
+      pinkRipples.clear();
+    }
     if (hasSecond) {
       const p2 = toWorld(x2, y2);
       orangeRipples.replaceAll([
@@ -107,9 +125,12 @@ export function mountDesignerPlayground(stageEl) {
   resize();
 
   return {
-    updateDistances(distance1, distance2, showSecond) {
+    updateDistances(distance1, distance2, showSecond, target1, target2, showPink) {
       lastD1 = distance1;
       lastD2 = distance2;
+      if (typeof target1 === 'number') targetMidi1 = target1;
+      if (typeof target2 === 'number') targetMidi2 = target2;
+      if (typeof showPink === 'boolean') showFirst = showPink;
       hasSecond = Boolean(showSecond);
       applyDistances();
     },

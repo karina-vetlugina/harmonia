@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Harmonia — Webcam prototype</title>
+  <title>Harmonia</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
@@ -43,15 +43,21 @@
       position: absolute;
       inset: 0;
     }
-    .center-line {
+    .target-line {
       position: absolute;
       top: 16px;
       bottom: 16px;
-      left: 50%;
       width: 2px;
-      transform: translateX(-50%);
       background: rgba(255, 255, 255, 0.45);
       z-index: 1;
+    }
+    .target-line--pink {
+      left: 33.333%;
+      transform: translateX(-50%);
+    }
+    .target-line--orange {
+      left: 66.666%;
+      transform: translateX(-50%);
     }
     .shell {
       margin: 0 auto;
@@ -130,26 +136,6 @@
       background: linear-gradient(90deg, #ff6dc7 0%, #67ffb2 60%, #8e74ff 100%);
       box-shadow: 0 0 12px rgba(137, 128, 255, 0.35);
     }
-    .camera-card {
-      min-height: 620px;
-    }
-    .camera-wrap {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid rgba(175, 165, 255, 0.24);
-      background: rgba(14, 13, 23, 0.9);
-    }
-    video {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: none;
-    }
     .overlay-root,
     .cue-layer {
       position: absolute;
@@ -214,7 +200,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index--ey2lZoU.js"></script>
+  <script type="module" crossorigin src="/assets/index-Cp1gd6wG.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DVrz-zQg.css">
 </head>
 <body>

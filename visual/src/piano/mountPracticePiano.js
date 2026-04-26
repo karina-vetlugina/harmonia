@@ -23,12 +23,28 @@ const BLACK_KEY_HEIGHT = 140;
 const KEYBOARD_TO_NOTE = Object.fromEntries(
   Object.entries(NOTE_TO_KEY).map(([note, key]) => [key, note])
 );
+const HARMONICS = [
+  { ratio: 1.0, gain: 0.50 },
+  { ratio: 2.0, gain: 0.25 },
+  { ratio: 3.0, gain: 0.12 },
+  { ratio: 4.0, gain: 0.07 },
+  { ratio: 5.0, gain: 0.04 },
+  { ratio: 6.0, gain: 0.02 }
+];
 
 function noteToMidi(note) {
   const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const pitch = note.slice(0, -1);
   const octave = Number(note.slice(-1));
   return (octave + 1) * 12 + names.indexOf(pitch);
+}
+
+function midiToFrequency(midi) {
+  return 440 * 2 ** ((midi - 69) / 12);
+}
+
+function noteDecayTime(midi) {
+  return 2.5 * Math.pow(2, -(midi - 60) / 36) + 0.4;
 }
 
 function buildKeyboardData() {
@@ -50,11 +66,147 @@ function buildKeyboardData() {
   });
 }
 
-export function mountPracticePiano(hostEl, { onNote } = {}) {
+export function mountPracticePiano(hostEl, { onNoteDown, onNoteUp } = {}) {
   hostEl.classList.add('piano-host');
   hostEl.innerHTML = '<div class="piano" id="practice-piano" aria-label="Playable piano keyboard"></div>';
   const pianoEl = hostEl.querySelector('#practice-piano');
   const pressedKeyboardKeys = new Set();
+  const activeVoices = new Map();
+  const pendingNotes = new Set();
+  let audioContext;
+  let audioUnlockPromise;
+  let reverbNode = null;
+  let compressorNode = null;
+
+  async function ensureAudioContext() {
+    if (!audioContext) {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) throw new Error('Web Audio not supported');
+      audioContext = new Ctor();
+    }
+    if (audioContext.state !== 'running') {
+      if (!audioUnlockPromise) {
+        audioUnlockPromise = audioContext.resume().catch((error) => {
+          audioUnlockPromise = undefined;
+          throw error;
+        });
+      }
+      try {
+        await audioUnlockPromise;
+      } finally {
+        audioUnlockPromise = undefined;
+      }
+    }
+    if (!compressorNode) {
+      compressorNode = audioContext.createDynamicsCompressor();
+      compressorNode.threshold.value = -12;
+      compressorNode.knee.value = 6;
+      compressorNode.ratio.value = 4;
+      compressorNode.attack.value = 0.002;
+      compressorNode.release.value = 0.15;
+      compressorNode.connect(audioContext.destination);
+
+      const rate = audioContext.sampleRate;
+      const duration = 2.0;
+      const length = Math.floor(rate * duration);
+      const impulse = audioContext.createBuffer(2, length, rate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = impulse.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.2);
+        }
+      }
+      reverbNode = audioContext.createConvolver();
+      reverbNode.buffer = impulse;
+      const reverbReturn = audioContext.createGain();
+      reverbReturn.gain.value = 0.25;
+      reverbNode.connect(reverbReturn);
+      reverbReturn.connect(compressorNode);
+    }
+  }
+
+  async function playNote(note) {
+    if (pendingNotes.has(note)) return;
+    const existing = activeVoices.get(note);
+    if (existing) {
+      if (!audioContext || audioContext.currentTime < existing.decayEndTime - 0.1) {
+        return;
+      }
+      activeVoices.delete(note);
+      setKeyActiveState(note, false);
+    }
+
+    pendingNotes.add(note);
+    try {
+      await ensureAudioContext();
+    } catch {
+      pendingNotes.delete(note);
+      return;
+    }
+    pendingNotes.delete(note);
+
+    const now = audioContext.currentTime;
+    const midi = noteToMidi(note);
+    const frequency = midiToFrequency(midi);
+    const decayTime = noteDecayTime(midi);
+
+    const masterGain = audioContext.createGain();
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.8, now + 0.003);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + decayTime);
+    masterGain.connect(compressorNode);
+    masterGain.connect(reverbNode);
+
+    const oscillators = [];
+    HARMONICS.forEach(({ ratio, gain }) => {
+      const osc = audioContext.createOscillator();
+      const oscGain = audioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = frequency * ratio;
+      oscGain.gain.value = gain;
+      osc.connect(oscGain);
+      oscGain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + decayTime + 0.5);
+      oscillators.push(osc);
+    });
+
+    const strikeDur = 0.06;
+    const strikeLen = Math.floor(audioContext.sampleRate * strikeDur);
+    const strikeBuf = audioContext.createBuffer(1, strikeLen, audioContext.sampleRate);
+    const strikeData = strikeBuf.getChannelData(0);
+    for (let i = 0; i < strikeLen; i++) strikeData[i] = Math.random() * 2 - 1;
+
+    const strikeSource = audioContext.createBufferSource();
+    strikeSource.buffer = strikeBuf;
+    const strikeFilter = audioContext.createBiquadFilter();
+    strikeFilter.type = 'bandpass';
+    strikeFilter.frequency.value = Math.min(frequency * 3, 8000);
+    strikeFilter.Q.value = 1.0;
+    const strikeGain = audioContext.createGain();
+    strikeGain.gain.setValueAtTime(0.06, now);
+    strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + strikeDur);
+    strikeSource.connect(strikeFilter);
+    strikeFilter.connect(strikeGain);
+    strikeGain.connect(masterGain);
+    strikeSource.start(now);
+
+    activeVoices.set(note, { oscillators, masterGain, decayEndTime: now + decayTime });
+  }
+
+  function stopNote(note) {
+    const voice = activeVoices.get(note);
+    if (!voice || !audioContext) return;
+    const now = audioContext.currentTime;
+    voice.masterGain.gain.cancelScheduledValues(now);
+    voice.masterGain.gain.setValueAtTime(Math.max(voice.masterGain.gain.value, 0.0001), now);
+    voice.masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+    voice.oscillators.forEach((osc) => {
+      try { osc.stop(now + 0.16); } catch {}
+    });
+    pendingNotes.delete(note);
+    activeVoices.delete(note);
+  }
 
   function setKeyActiveState(note, isActive) {
     const keyEl = pianoEl.querySelector(`[data-note="${note}"]`);
@@ -83,24 +235,39 @@ export function mountPracticePiano(hostEl, { onNote } = {}) {
     }
     keyEl.addEventListener('pointerdown', () => {
       setKeyActiveState(noteInfo.note, true);
-      if (onNote) onNote({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+      void playNote(noteInfo.note);
+      if (onNoteDown) onNoteDown({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
     });
-    keyEl.addEventListener('pointerup', () => setKeyActiveState(noteInfo.note, false));
-    keyEl.addEventListener('pointercancel', () => setKeyActiveState(noteInfo.note, false));
-    keyEl.addEventListener('pointerleave', () => setKeyActiveState(noteInfo.note, false));
+    keyEl.addEventListener('pointerup', () => {
+      setKeyActiveState(noteInfo.note, false);
+      stopNote(noteInfo.note);
+      if (onNoteUp) onNoteUp({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+    });
+    keyEl.addEventListener('pointercancel', () => {
+      setKeyActiveState(noteInfo.note, false);
+      stopNote(noteInfo.note);
+      if (onNoteUp) onNoteUp({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+    });
+    keyEl.addEventListener('pointerleave', () => {
+      setKeyActiveState(noteInfo.note, false);
+      stopNote(noteInfo.note);
+      if (onNoteUp) onNoteUp({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+    });
     return keyEl;
   }
 
   buildKeyboardData().forEach((info) => pianoEl.appendChild(createKeyElement(info)));
 
   function onKeyDown(event) {
+    if (event.repeat) return;
     const note = KEYBOARD_TO_NOTE[event.key.toLowerCase()];
     if (!note) return;
     event.preventDefault();
     if (pressedKeyboardKeys.has(event.key.toLowerCase())) return;
     pressedKeyboardKeys.add(event.key.toLowerCase());
     setKeyActiveState(note, true);
-    if (onNote) onNote({ pitch: note, midi: noteToMidi(note) });
+    void playNote(note);
+    if (onNoteDown) onNoteDown({ pitch: note, midi: noteToMidi(note) });
   }
 
   function onKeyUp(event) {
@@ -109,11 +276,14 @@ export function mountPracticePiano(hostEl, { onNote } = {}) {
     event.preventDefault();
     pressedKeyboardKeys.delete(event.key.toLowerCase());
     setKeyActiveState(note, false);
+    stopNote(note);
+    if (onNoteUp) onNoteUp({ pitch: note, midi: noteToMidi(note) });
   }
 
   function onBlur() {
     pressedKeyboardKeys.clear();
     pianoEl.querySelectorAll('.key.active').forEach((el) => el.classList.remove('active'));
+    Array.from(activeVoices.keys()).forEach((note) => stopNote(note));
   }
 
   window.addEventListener('keydown', onKeyDown);
@@ -125,6 +295,7 @@ export function mountPracticePiano(hostEl, { onNote } = {}) {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
+      Array.from(activeVoices.keys()).forEach((note) => stopNote(note));
       hostEl.classList.remove('piano-host');
       hostEl.innerHTML = '';
     }
