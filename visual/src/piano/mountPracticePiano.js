@@ -234,7 +234,6 @@ export function mountPracticePiano(hostEl, { canActivateNote, onNoteDown, onNote
       keyEl.appendChild(noteLabel);
     }
     keyEl.addEventListener('pointerdown', () => {
-      if (activeVoices.has(noteInfo.note)) return;
       const notePayload = { pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) };
       if (canActivateNote && !canActivateNote(notePayload)) return;
       setKeyActiveState(noteInfo.note, true);
