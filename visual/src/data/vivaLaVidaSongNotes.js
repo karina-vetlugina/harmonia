@@ -1,0 +1,392 @@
+const vivaLaVidaSongNotes = {
+  "title": "Viva la Vida (snippet)",
+  "key": "G major",
+  "bpm": 112,
+  "timeSignature": "4/4",
+  "progression": [
+    "C",
+    "D",
+    "G",
+    "Em",
+    "C",
+    "D",
+    "G",
+    "Em"
+  ],
+  "leftHandPattern": "root + 5th dyad, sustained 1 bar",
+  "notes": [
+    {
+      "t": 0.255,
+      "pitch": "G3",
+      "midi": 55,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 0.255,
+      "pitch": "C4",
+      "midi": 60,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 0.789,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 1.3,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 1.556,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 1.834,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 2.09,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 2.345,
+      "pitch": "A3",
+      "midi": 57,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 2.345,
+      "pitch": "D4",
+      "midi": 62,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 2.879,
+      "pitch": "A4",
+      "midi": 69,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 3.135,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 3.646,
+      "pitch": "C5",
+      "midi": 72,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 4.435,
+      "pitch": "G3",
+      "midi": 55,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 4.435,
+      "pitch": "D4",
+      "midi": 62,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 4.435,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 4.969,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 5.48,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 5.735,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 5.991,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 6.269,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 6.525,
+      "pitch": "E3",
+      "midi": 52,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 6.525,
+      "pitch": "B3",
+      "midi": 59,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 6.525,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 7.036,
+      "pitch": "E4",
+      "midi": 64,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 7.314,
+      "pitch": "F#4",
+      "midi": 66,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 7.825,
+      "pitch": "G4",
+      "midi": 67,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 8.615,
+      "pitch": "G3",
+      "midi": 55,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 8.615,
+      "pitch": "C4",
+      "midi": 60,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 9.149,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 9.66,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 9.915,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 10.17,
+      "pitch": "E5",
+      "midi": 76,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 10.426,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 10.681,
+      "pitch": "A3",
+      "midi": 57,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 10.681,
+      "pitch": "D4",
+      "midi": 62,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 11.215,
+      "pitch": "A4",
+      "midi": 69,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 11.471,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 12.005,
+      "pitch": "C5",
+      "midi": 72,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 12.771,
+      "pitch": "G3",
+      "midi": 55,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 12.771,
+      "pitch": "D4",
+      "midi": 62,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 12.771,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 13.05,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 13.305,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 13.816,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 14.095,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 14.35,
+      "pitch": "D5",
+      "midi": 74,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 14.605,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 14.861,
+      "pitch": "E3",
+      "midi": 52,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 14.861,
+      "pitch": "B3",
+      "midi": 59,
+      "hand": "L",
+      "dur": 2.143
+    },
+    {
+      "t": 14.861,
+      "pitch": "B4",
+      "midi": 71,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 15.395,
+      "pitch": "E4",
+      "midi": 64,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 15.65,
+      "pitch": "F#4",
+      "midi": 66,
+      "hand": "R",
+      "dur": 0.268
+    },
+    {
+      "t": 16.184,
+      "pitch": "G4",
+      "midi": 67,
+      "hand": "R",
+      "dur": 0.268
+    }
+  ]
+};
+
+export default vivaLaVidaSongNotes;
