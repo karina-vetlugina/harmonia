@@ -4,6 +4,11 @@
 
 Built for **BearHack 2026** under the theme *Breaking the Norm*.
 
+## Links
+
+- Devpost: https://devpost.com/software/harmonia-w9doak
+- Demo video: https://youtu.be/ZnKKkHOpjeQ?si=t_sfwToJKiEYUJ6d
+
 ![Main screen of Harmonia](assets/main-screen2.png)
 
 ## The Idea
