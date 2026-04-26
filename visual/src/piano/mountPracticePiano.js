@@ -66,7 +66,7 @@ function buildKeyboardData() {
   });
 }
 
-export function mountPracticePiano(hostEl, { onNoteDown, onNoteUp } = {}) {
+export function mountPracticePiano(hostEl, { canActivateNote, onNoteDown, onNoteUp } = {}) {
   hostEl.classList.add('piano-host');
   hostEl.innerHTML = '<div class="piano" id="practice-piano" aria-label="Playable piano keyboard"></div>';
   const pianoEl = hostEl.querySelector('#practice-piano');
@@ -234,9 +234,12 @@ export function mountPracticePiano(hostEl, { onNoteDown, onNoteUp } = {}) {
       keyEl.appendChild(noteLabel);
     }
     keyEl.addEventListener('pointerdown', () => {
+      if (activeVoices.has(noteInfo.note)) return;
+      const notePayload = { pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) };
+      if (canActivateNote && !canActivateNote(notePayload)) return;
       setKeyActiveState(noteInfo.note, true);
       void playNote(noteInfo.note);
-      if (onNoteDown) onNoteDown({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+      if (onNoteDown) onNoteDown(notePayload);
     });
     keyEl.addEventListener('pointerup', () => {
       setKeyActiveState(noteInfo.note, false);
@@ -264,10 +267,12 @@ export function mountPracticePiano(hostEl, { onNoteDown, onNoteUp } = {}) {
     if (!note) return;
     event.preventDefault();
     if (pressedKeyboardKeys.has(event.key.toLowerCase())) return;
+    const notePayload = { pitch: note, midi: noteToMidi(note) };
+    if (canActivateNote && !canActivateNote(notePayload)) return;
     pressedKeyboardKeys.add(event.key.toLowerCase());
     setKeyActiveState(note, true);
     void playNote(note);
-    if (onNoteDown) onNoteDown({ pitch: note, midi: noteToMidi(note) });
+    if (onNoteDown) onNoteDown(notePayload);
   }
 
   function onKeyUp(event) {
@@ -281,9 +286,13 @@ export function mountPracticePiano(hostEl, { onNoteDown, onNoteUp } = {}) {
   }
 
   function onBlur() {
+    const releasedNotes = Array.from(activeVoices.keys());
     pressedKeyboardKeys.clear();
     pianoEl.querySelectorAll('.key.active').forEach((el) => el.classList.remove('active'));
     Array.from(activeVoices.keys()).forEach((note) => stopNote(note));
+    if (onNoteUp) {
+      releasedNotes.forEach((note) => onNoteUp({ pitch: note, midi: noteToMidi(note) }));
+    }
   }
 
   window.addEventListener('keydown', onKeyDown);

@@ -6,35 +6,69 @@
   <title>Harmonia</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
     body {
       background: #08090d;
       color: #f5f2ff;
       font-family: Inter, system-ui, sans-serif;
-      min-height: 100vh;
+      height: 100dvh;
+      min-height: 100dvh;
     }
     #app {
-      min-height: 100vh;
+      height: 100dvh;
+      min-height: 100dvh;
       padding: 0;
     }
     .practice-screen {
       width: 100%;
-      min-height: 100vh;
+      height: 100dvh;
+      min-height: 100dvh;
       display: grid;
       grid-template-rows: 1fr 1fr;
+      overflow: hidden;
     }
     .keyboard-section {
       display: grid;
       align-items: center;
       justify-items: center;
+      align-content: center;
+      gap: 10px;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .hand-selector {
+      display: inline-flex;
+      gap: 8px;
+      justify-self: center;
+      align-self: end;
+      z-index: 2;
+    }
+    .hand-button {
+      min-width: 120px;
+      border: 1px solid rgba(199, 189, 255, 0.32);
+      color: #f6f4ff;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .hand-button.active {
+      border-color: rgba(117, 255, 193, 0.65);
+      background: linear-gradient(180deg, rgba(117,255,193,0.28), rgba(117,255,193,0.11));
+      box-shadow: 0 0 16px rgba(117, 255, 193, 0.22);
     }
     .feedback-section {
       position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+      overflow: hidden;
     }
     .feedback-playground {
       position: relative;
       width: 100%;
-      height: 100%;
+      height: auto;
+      min-height: 0;
       overflow: hidden;
       border-top: 1px solid rgba(175, 165, 255, 0.2);
       background: #08090d;
@@ -45,8 +79,8 @@
     }
     .target-line {
       position: absolute;
-      top: 16px;
-      bottom: 16px;
+      top: 32px;
+      bottom: 32px;
       width: 2px;
       background: rgba(255, 255, 255, 0.45);
       z-index: 1;
@@ -57,6 +91,10 @@
     }
     .target-line--orange {
       left: 66.666%;
+      transform: translateX(-50%);
+    }
+    .target-line--green {
+      left: 50%;
       transform: translateX(-50%);
     }
     .shell {
@@ -96,6 +134,10 @@
       margin-top: 10px;
       font-size: 13px;
       color: #9f99bc;
+    }
+    #debug {
+      margin: 0;
+      padding-top: 2px;
     }
     .buttons {
       margin-top: 16px;

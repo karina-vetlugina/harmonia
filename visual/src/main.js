@@ -8,15 +8,18 @@ let piano = null;
 let playground = null;
 const activeNotesByMidi = new Map();
 const activeMidiOrder = [];
+let activeHand = 'L';
 const leftHandNotes = vivaLaVidaSongNotes.notes
   .filter((n) => n.hand === 'L')
+  .sort((a, b) => a.t - b.t);
+const rightHandNotes = vivaLaVidaSongNotes.notes
+  .filter((n) => n.hand === 'R')
   .sort((a, b) => a.t - b.t);
 const firstLeftT = leftHandNotes[0]?.t ?? 0;
 const firstLeftTarget = leftHandNotes
   .filter((n) => Math.abs(n.t - firstLeftT) <= 0.03)
   .sort((a, b) => a.midi - b.midi);
-const targetMidis = firstLeftTarget.map((n) => n.midi);
-const targetNotes = firstLeftTarget.map((n) => n.pitch);
+const firstRightTarget = rightHandNotes[0] ? [rightHandNotes[0]] : [];
 
 function statusForDistance(distance) {
   if (distance === 0) return 'correct';
@@ -207,8 +210,28 @@ function getSelectedActiveNotes(limit) {
   return activeMidis.slice(-limit).map((midi) => activeNotesByMidi.get(midi));
 }
 
+function getMaxActiveNotesForHand() {
+  return activeHand === 'L' ? 2 : 1;
+}
+
+function getFeedbackNotesForHand() {
+  return getSelectedActiveNotes(getMaxActiveNotesForHand());
+}
+
+function currentTarget() {
+  return activeHand === 'L' ? firstLeftTarget : firstRightTarget;
+}
+
+function currentTargetMidis() {
+  return currentTarget().map((n) => n.midi);
+}
+
+function currentTargetNotes() {
+  return currentTarget().map((n) => n.pitch);
+}
+
 function activeDebugString() {
-  const active = getSelectedActiveNotes(targetMidis.length);
+  const active = getFeedbackNotesForHand();
   return active.length ? active.map((n) => n.pitch).join(' + ') : '-';
 }
 
@@ -227,33 +250,96 @@ function handleNoteUp(note) {
   updateFeedback();
 }
 
+function canActivateNote(note) {
+  if (activeNotesByMidi.has(note.midi)) return true;
+  return activeNotesByMidi.size < getMaxActiveNotesForHand();
+}
+
 function updateFeedback() {
   if (!playground) return;
   const debug = document.getElementById('debug');
-  const selectedActiveNotes = getSelectedActiveNotes(targetMidis.length);
-  if (selectedActiveNotes.length === 0) {
-    playground.updateDistances(0, 0, false, targetMidis[0], targetMidis[1], false);
+  const target = currentTarget();
+  const targetMidis = currentTargetMidis();
+  const targetNotes = currentTargetNotes();
+  const feedbackNotes = getFeedbackNotesForHand();
+  const physicallyActiveCount = activeNotesByMidi.size;
+  const feedbackCount = feedbackNotes.length;
+  const isTruncated = physicallyActiveCount > feedbackCount;
+  if (feedbackNotes.length === 0) {
+    if (activeHand === 'L') {
+      playground.updateState({
+        mode: 'left',
+        pinkDistance: 0,
+        orangeDistance: 0,
+        showPink: false,
+        showOrange: false,
+        showGreen: false,
+        pinkTargetMidi: targetMidis[0],
+        orangeTargetMidi: targetMidis[1]
+      });
+    } else {
+      playground.updateState({
+        mode: 'right',
+        greenDistance: 0,
+        showPink: false,
+        showOrange: false,
+        showGreen: false,
+        greenTargetMidi: targetMidis[0]
+      });
+    }
     if (debug) {
-      debug.textContent = `target: ${targetNotes.join(' + ')} | active: - | play 1 or 2 notes`;
+      debug.textContent =
+        activeHand === 'L'
+          ? `left hand | target: ${targetNotes.join(' + ')} | active: - | play 1 or 2 notes`
+          : `target: ${targetNotes[0]} | active: - | hold 1 note`;
     }
     return;
   }
-  const comparison = getTwoNoteComparison(firstLeftTarget, selectedActiveNotes);
-  const showPink = comparison[0].playedMidi != null;
-  const showOrange = comparison[1].playedMidi != null;
-  playground.updateDistances(
-    comparison[0].distance,
-    comparison[1].distance,
-    showOrange,
-    comparison[0].targetMidi,
-    comparison[1].targetMidi,
-    showPink
-  );
-  if (debug) {
-    const p = comparison[0].distance > 0 ? `+${comparison[0].distance}` : `${comparison[0].distance}`;
-    const o = comparison[1].distance > 0 ? `+${comparison[1].distance}` : `${comparison[1].distance}`;
-    debug.textContent = `target: ${targetNotes.join(' + ')} | active: ${activeDebugString()} | pink: ${comparison[0].playedPitch ?? '-'}→${comparison[0].targetPitch} = ${p} | orange: ${comparison[1].playedPitch ?? '-'}→${comparison[1].targetPitch} = ${o}`;
+  if (activeHand === 'L') {
+    const comparison = getTwoNoteComparison(firstLeftTarget, feedbackNotes);
+    const showPink = comparison[0].playedMidi != null;
+    const showOrange = comparison[1].playedMidi != null;
+    playground.updateState({
+      mode: 'left',
+      pinkDistance: comparison[0].distance,
+      orangeDistance: comparison[1].distance,
+      showPink,
+      showOrange,
+      showGreen: false,
+      pinkTargetMidi: comparison[0].targetMidi,
+      orangeTargetMidi: comparison[1].targetMidi
+    });
+    if (debug) {
+      const p = comparison[0].distance > 0 ? `+${comparison[0].distance}` : `${comparison[0].distance}`;
+      const o = comparison[1].distance > 0 ? `+${comparison[1].distance}` : `${comparison[1].distance}`;
+      const suffix = isTruncated ? ' | using latest 2 notes' : '';
+      debug.textContent = `left hand | target: ${targetNotes.join(' + ')} | active: ${activeDebugString()} | pink: ${comparison[0].playedPitch ?? '-'}→${comparison[0].targetPitch} = ${p} | orange: ${comparison[1].playedPitch ?? '-'}→${comparison[1].targetPitch} = ${o}${suffix}`;
+    }
+    return;
   }
+  const played = feedbackNotes[feedbackNotes.length - 1];
+  const distance = played.midi - target[0].midi;
+  playground.updateState({
+    mode: 'right',
+    greenDistance: distance,
+    showPink: false,
+    showOrange: false,
+    showGreen: true,
+    greenTargetMidi: target[0].midi
+  });
+  if (debug) {
+    const d = distance > 0 ? `+${distance}` : `${distance}`;
+    const suffix = isTruncated ? ' | using latest note' : '';
+    debug.textContent = `target: ${target[0].pitch} | active: ${played.pitch} | green: ${played.pitch}→${target[0].pitch} = ${d}${suffix}`;
+  }
+}
+
+function setActiveHand(nextHand) {
+  if (nextHand === activeHand) return;
+  activeHand = nextHand;
+  activeNotesByMidi.clear();
+  activeMidiOrder.length = 0;
+  render();
 }
 
 function render() {
@@ -268,19 +354,35 @@ function render() {
   app.innerHTML = `
     <main class="practice-screen">
       <section class="keyboard-section">
+        <div class="hand-selector">
+          <button class="hand-button ${activeHand === 'L' ? 'active' : ''}" data-hand="L">Left hand</button>
+          <button class="hand-button ${activeHand === 'R' ? 'active' : ''}" data-hand="R">Right hand</button>
+        </div>
         <div id="piano-host"></div>
       </section>
       <section class="feedback-section">
         <p class="small" id="debug"></p>
         <div class="feedback-playground">
+          ${
+            activeHand === 'L'
+              ? `
           <div class="target-line target-line--pink"></div>
           <div class="target-line target-line--orange"></div>
+          `
+              : `
+          <div class="target-line target-line--green"></div>
+          `
+          }
           <div id="designer-stage" class="designer-stage"></div>
         </div>
       </section>
     </main>
   `;
+  app.querySelectorAll('.hand-button').forEach((button) => {
+    button.addEventListener('click', () => setActiveHand(button.dataset.hand));
+  });
   piano = mountPracticePiano(document.getElementById('piano-host'), {
+    canActivateNote,
     onNoteDown: handleNoteDown,
     onNoteUp: handleNoteUp
   });

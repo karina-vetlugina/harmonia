@@ -4,6 +4,7 @@ import { RippleStore } from '../rippleModel.js';
 
 const PINK = { r: 232, g: 112, b: 168 };
 const ORANGE = { r: 212, g: 132, b: 96 };
+const GREEN = { r: 101, g: 255, b: 155 };
 const MIN_KEYBOARD_MIDI = 52;
 const MAX_KEYBOARD_MIDI = 77;
 
@@ -12,8 +13,11 @@ export function mountDesignerPlayground(stageEl) {
   pinkCanvas.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0';
   const orangeCanvas = document.createElement('canvas');
   orangeCanvas.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0';
+  const greenCanvas = document.createElement('canvas');
+  greenCanvas.style.cssText = 'display:block;width:100%;height:100%;position:absolute;inset:0';
   stageEl.appendChild(pinkCanvas);
   stageEl.appendChild(orangeCanvas);
+  stageEl.appendChild(greenCanvas);
 
   const pinkGL = pinkCanvas.getContext('webgl2', {
     alpha: true,
@@ -25,12 +29,19 @@ export function mountDesignerPlayground(stageEl) {
     antialias: true,
     premultipliedAlpha: false
   });
-  if (!pinkGL || !orangeGL) throw new Error('WebGL2 unavailable');
+  const greenGL = greenCanvas.getContext('webgl2', {
+    alpha: true,
+    antialias: true,
+    premultipliedAlpha: false
+  });
+  if (!pinkGL || !orangeGL || !greenGL) throw new Error('WebGL2 unavailable');
 
   const pinkRenderer = new GridRenderer(pinkGL);
   const orangeRenderer = new GridRenderer(orangeGL);
+  const greenRenderer = new GridRenderer(greenGL);
   const pinkRipples = new RippleStore();
   const orangeRipples = new RippleStore();
+  const greenRipples = new RippleStore();
 
   let worldW = 1;
   let worldH = 1;
@@ -38,20 +49,26 @@ export function mountDesignerPlayground(stageEl) {
   let bufH = 1;
   let lastD1 = 0;
   let lastD2 = 0;
+  let lastGreenDistance = 0;
   let targetMidi1 = 55;
   let targetMidi2 = 60;
+  let targetMidiGreen = 76;
   let showFirst = true;
   let hasSecond = false;
+  let showGreen = false;
+  let mode = 'left';
 
   function draw() {
     const pinkMat = worldToClipMat3(worldW, worldH, pinkCanvas.width, pinkCanvas.height);
     pinkRenderer.draw(pinkMat, pinkRipples.items);
     const orangeMat = worldToClipMat3(worldW, worldH, orangeCanvas.width, orangeCanvas.height);
     orangeRenderer.draw(orangeMat, orangeRipples.items);
+    const greenMat = worldToClipMat3(worldW, worldH, greenCanvas.width, greenCanvas.height);
+    greenRenderer.draw(greenMat, greenRipples.items);
   }
 
   function toWorld(nx, ny) {
-    const rect = pinkCanvas.getBoundingClientRect();
+    const rect = stageEl.getBoundingClientRect();
     return clientToWorld(
       rect.left + nx * rect.width,
       rect.top + ny * rect.height,
@@ -96,6 +113,20 @@ export function mountDesignerPlayground(stageEl) {
     } else {
       orangeRipples.clear();
     }
+    if (showGreen) {
+      const ng = normalizeDistance(lastGreenDistance, targetMidiGreen);
+      const xg = 0.5 + ng * spread;
+      const yg = 0.56;
+      const pg = toWorld(xg, yg);
+      greenRipples.replaceAll([
+        { nx: xg, ny: yg, x: pg.x, y: pg.y, r: GREEN.r, g: GREEN.g, b: GREEN.b, createdAt: Date.now() }
+      ]);
+    } else {
+      greenRipples.clear();
+    }
+    pinkCanvas.style.display = mode === 'left' ? 'block' : 'none';
+    orangeCanvas.style.display = mode === 'left' ? 'block' : 'none';
+    greenCanvas.style.display = mode === 'right' ? 'block' : 'none';
   }
 
   function resize() {
@@ -105,6 +136,8 @@ export function mountDesignerPlayground(stageEl) {
     pinkCanvas.height = Math.floor(rect.height * dpr);
     orangeCanvas.width = Math.floor(rect.width * dpr);
     orangeCanvas.height = Math.floor(rect.height * dpr);
+    greenCanvas.width = Math.floor(rect.width * dpr);
+    greenCanvas.height = Math.floor(rect.height * dpr);
     bufW = pinkCanvas.width;
     bufH = pinkCanvas.height;
     const tiles = chooseTileCounts(rect.width, rect.height);
@@ -114,17 +147,43 @@ export function mountDesignerPlayground(stageEl) {
     const dots = buildDotPositions(tiles.tilesX, tiles.tilesY);
     pinkRenderer.setDotPositions(dots);
     orangeRenderer.setDotPositions(dots);
+    greenRenderer.setDotPositions(dots);
     applyDistances();
     draw();
   }
 
   const unsubPink = pinkRipples.subscribe(draw);
   const unsubOrange = orangeRipples.subscribe(draw);
+  const unsubGreen = greenRipples.subscribe(draw);
   const ro = new ResizeObserver(() => resize());
   ro.observe(stageEl);
   resize();
 
   return {
+    updateState({
+      mode: nextMode,
+      pinkDistance,
+      orangeDistance,
+      greenDistance,
+      showPink,
+      showOrange,
+      showGreen: nextShowGreen,
+      pinkTargetMidi,
+      orangeTargetMidi,
+      greenTargetMidi
+    }) {
+      if (nextMode) mode = nextMode;
+      if (typeof pinkDistance === 'number') lastD1 = pinkDistance;
+      if (typeof orangeDistance === 'number') lastD2 = orangeDistance;
+      if (typeof greenDistance === 'number') lastGreenDistance = greenDistance;
+      if (typeof pinkTargetMidi === 'number') targetMidi1 = pinkTargetMidi;
+      if (typeof orangeTargetMidi === 'number') targetMidi2 = orangeTargetMidi;
+      if (typeof greenTargetMidi === 'number') targetMidiGreen = greenTargetMidi;
+      if (typeof showPink === 'boolean') showFirst = showPink;
+      if (typeof showOrange === 'boolean') hasSecond = showOrange;
+      if (typeof nextShowGreen === 'boolean') showGreen = nextShowGreen;
+      applyDistances();
+    },
     updateDistances(distance1, distance2, showSecond, target1, target2, showPink) {
       lastD1 = distance1;
       lastD2 = distance2;
@@ -132,11 +191,14 @@ export function mountDesignerPlayground(stageEl) {
       if (typeof target2 === 'number') targetMidi2 = target2;
       if (typeof showPink === 'boolean') showFirst = showPink;
       hasSecond = Boolean(showSecond);
+      mode = 'left';
+      showGreen = false;
       applyDistances();
     },
     destroy() {
       unsubPink();
       unsubOrange();
+      unsubGreen();
       ro.disconnect();
       stageEl.innerHTML = '';
     }

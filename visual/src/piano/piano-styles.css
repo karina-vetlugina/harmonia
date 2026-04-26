@@ -12,6 +12,8 @@
   border: 1px solid #202739;
   border-radius: 14px;
   overflow: hidden;
+  transform-origin: center center;
+  transform: scale(min(1, calc((50dvh - 24px) / 220), calc((100vw - 24px) / 864)));
 }
 
 .piano-host .key {
@@ -67,8 +69,6 @@
 
 @media (max-width: 940px) {
   .piano-host .piano {
-    transform-origin: top center;
-    transform: scale(0.76);
-    margin-bottom: -50px;
+    transform-origin: center center;
   }
 }
