@@ -231,21 +231,23 @@ function updateFeedback() {
   if (!playground) return;
   const debug = document.getElementById('debug');
   const selectedActiveNotes = getSelectedActiveNotes(targetMidis.length);
-  if (selectedActiveNotes.length < targetMidis.length) {
+  if (selectedActiveNotes.length === 0) {
     playground.updateDistances(0, 0, false, targetMidis[0], targetMidis[1], false);
     if (debug) {
-      debug.textContent = `target: ${targetNotes.join(' + ')} | active: ${activeDebugString()} | hold ${targetMidis.length} notes`;
+      debug.textContent = `target: ${targetNotes.join(' + ')} | active: - | play 1 or 2 notes`;
     }
     return;
   }
   const comparison = getTwoNoteComparison(firstLeftTarget, selectedActiveNotes);
+  const showPink = comparison[0].playedMidi != null;
+  const showOrange = comparison[1].playedMidi != null;
   playground.updateDistances(
     comparison[0].distance,
     comparison[1].distance,
-    selectedActiveNotes.length > 1,
+    showOrange,
     comparison[0].targetMidi,
     comparison[1].targetMidi,
-    true
+    showPink
   );
   if (debug) {
     const p = comparison[0].distance > 0 ? `+${comparison[0].distance}` : `${comparison[0].distance}`;
@@ -271,7 +273,8 @@ function render() {
       <section class="feedback-section">
         <p class="small" id="debug"></p>
         <div class="feedback-playground">
-          <div class="center-line"></div>
+          <div class="target-line target-line--pink"></div>
+          <div class="target-line target-line--orange"></div>
           <div id="designer-stage" class="designer-stage"></div>
         </div>
       </section>

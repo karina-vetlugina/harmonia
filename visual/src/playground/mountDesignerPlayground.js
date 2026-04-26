@@ -76,8 +76,8 @@ export function mountDesignerPlayground(stageEl) {
     }
     const n1 = normalizeDistance(lastD1, targetMidi1);
     const n2 = normalizeDistance(lastD2, targetMidi2);
-    const x1 = 0.5 + n1 * spread;
-    const x2 = 0.5 + n2 * spread;
+    const x1 = 1 / 3 + n1 * spread;
+    const x2 = 2 / 3 + n2 * spread;
     const y1 = 0.54;
     const y2 = 0.58;
     if (showFirst) {
