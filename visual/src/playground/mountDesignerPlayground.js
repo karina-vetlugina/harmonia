@@ -2,7 +2,7 @@ import { chooseTileCounts, computeWorldSize, buildDotPositions, worldToClipMat3,
 import { GridRenderer } from '../webgl/GridRenderer.js';
 import { RippleStore } from '../rippleModel.js';
 
-const PINK = { r: 232, g: 112, b: 168 };
+const PINK = { r: 241, g: 173, b: 255 };
 const ORANGE = { r: 212, g: 132, b: 96 };
 const GREEN = { r: 101, g: 255, b: 155 };
 const MIN_KEYBOARD_MIDI = 52;
