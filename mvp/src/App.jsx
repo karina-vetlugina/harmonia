@@ -79,8 +79,8 @@ const HARMONICS = [
 
 // 1-based chord order for practice. Change this to add spaced repetition,
 // e.g. [1, 2, 1, 2, 3, 2, 3, 4, ...].
-const PRACTICE_SEQUENCE = [1, 2, 1, 2, 3, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8];
-const IDLE_PULSE_DELAY_MS = 6000;
+const PRACTICE_SEQUENCE = [1, 2, 3, 4, 5, 6, 7, 8];
+const IDLE_PULSE_DELAY_MS = 5000;
 const TARGET_CHORD_MS = 700;
 
 function noteDecayTime(midi) {

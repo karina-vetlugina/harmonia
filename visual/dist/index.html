@@ -83,7 +83,7 @@
       height: 100dvh;
       min-height: 100dvh;
       display: grid;
-      grid-template-rows: 1fr 1fr;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
       overflow: hidden;
     }
     .keyboard-section {
@@ -105,6 +105,54 @@
       object-fit: contain;
       pointer-events: none;
       z-index: 4;
+    }
+    .music-picker {
+      position: absolute;
+      top: var(--edge-gap);
+      right: var(--edge-gap);
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(245, 242, 255, 0.74);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .music-picker select {
+      appearance: none;
+      border: 1px solid rgba(199, 189, 255, 0.32);
+      border-radius: 999px;
+      color: #f6f4ff;
+      background:
+        linear-gradient(45deg, transparent 50%, rgba(246, 244, 255, 0.82) 50%) right 14px center / 6px 6px no-repeat,
+        linear-gradient(135deg, rgba(246, 244, 255, 0.82) 50%, transparent 50%) right 10px center / 6px 6px no-repeat,
+        rgba(255, 255, 255, 0.04);
+      padding: 8px 28px 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .visualizer-toggle {
+      position: absolute;
+      top: calc(var(--edge-gap) + 42px);
+      right: var(--edge-gap);
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border: 1px solid rgba(199, 189, 255, 0.24);
+      border-radius: 999px;
+      color: rgba(245, 242, 255, 0.78);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .visualizer-toggle input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--pink-light);
+      cursor: pointer;
     }
     .hand-selector {
       display: inline-flex;
@@ -134,7 +182,8 @@
     .feedback-section {
       position: relative;
       display: grid;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
       min-height: 0;
       overflow: hidden;
     }
@@ -145,18 +194,67 @@
       align-items: center;
       padding: 6px 12px 4px;
     }
+    #status {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f6f4ff;
+      letter-spacing: 0.01em;
+    }
+    #progress-text {
+      font-size: 14px;
+    }
     .practice-progress .progress {
       grid-column: 1 / -1;
       margin-top: 2px;
       height: 5px;
+      transition: background 140ms ease, box-shadow 140ms ease;
+    }
+    .practice-progress.practice-progress--sounding .progress {
+      background: rgba(246, 244, 255, 0.14);
+      box-shadow: 0 0 18px rgba(246, 244, 255, 0.18);
+      animation: progress-sound-pulse 700ms ease-out;
+    }
+    .practice-progress.practice-progress--sounding .progress > span {
+      filter: brightness(1.35);
+      box-shadow: 0 0 18px rgba(246, 244, 255, 0.38);
+    }
+    .practice-progress.practice-progress--correct .progress {
+      background: rgba(103, 255, 178, 0.18);
+      box-shadow: 0 0 20px rgba(103, 255, 178, 0.34);
+    }
+    .practice-progress.practice-progress--correct .progress > span {
+      background: linear-gradient(90deg, #67ffb2 0%, #d9ffee 100%);
+      box-shadow: 0 0 18px rgba(103, 255, 178, 0.62);
+    }
+    .practice-progress.practice-progress--correct #status {
+      color: #d9ffee;
+      text-shadow: 0 0 14px rgba(103, 255, 178, 0.42);
+    }
+    @keyframes progress-sound-pulse {
+      0% {
+        transform: scaleY(1);
+      }
+      26% {
+        transform: scaleY(1.45);
+      }
+      100% {
+        transform: scaleY(1);
+      }
     }
     .feedback-playground {
       position: relative;
       width: 100%;
-      height: auto;
+      height: 100%;
       min-height: 0;
       overflow: hidden;
       border-top: 1px solid rgba(175, 165, 255, 0.2);
+      background: #08090d;
+    }
+    .feedback-playground.feedback-playground--visualizer-off .designer-stage,
+    .feedback-playground.feedback-playground--visualizer-off .target-line {
+      display: none;
+    }
+    .feedback-playground.feedback-playground--visualizer-off {
       background: #08090d;
     }
     .feedback-playground::after {
@@ -280,8 +378,7 @@
       color: #9f99bc;
     }
     #debug {
-      margin: 0;
-      padding-top: 2px;
+      display: none;
     }
     .buttons {
       margin-top: 16px;
@@ -390,7 +487,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-CNCUxOxh.js"></script>
+  <script type="module" crossorigin src="/assets/index-ujw3eJi1.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DSypGLkC.css">
 </head>
 <body>

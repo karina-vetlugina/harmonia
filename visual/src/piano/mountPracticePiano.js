@@ -255,13 +255,6 @@ export function mountPracticePiano(hostEl, { canActivateNote, onNoteDown, onNote
     keyEl.ariaLabel = keyboardKey
       ? `${noteInfo.note} key mapped to ${keyboardKey.toUpperCase()}`
       : `${noteInfo.note} key`;
-    keyEl.textContent = keyboardKey ? keyboardKey.toUpperCase() : '';
-    if (noteInfo.type === 'white') {
-      const noteLabel = document.createElement('span');
-      noteLabel.className = 'key-note';
-      noteLabel.textContent = noteInfo.note;
-      keyEl.appendChild(noteLabel);
-    }
     keyEl.addEventListener('pointerdown', () => {
       primeAudioFromGesture();
       const notePayload = { pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) };

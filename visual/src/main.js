@@ -7,6 +7,7 @@ const app = document.getElementById('app');
 let piano = null;
 let playground = null;
 let showIntroOverlay = true;
+let visualizerEnabled = true;
 const activeNotesByMidi = new Map();
 const activeMidiOrder = [];
 let activeHand = 'L';
@@ -24,7 +25,7 @@ const TARGET_CHORD_MS = 700;
 const START_TARGET_DELAY_MS = 400;
 const EVAL_DELAY_MS = 300;
 const SUCCESS_ADVANCE_MS = 600;
-const IDLE_PULSE_DELAY_MS = 6000;
+const IDLE_PULSE_DELAY_MS = 5000;
 
 const leftHandNotes = vivaLaVidaSongNotes.notes
   .filter((n) => n.hand === 'L')
@@ -321,15 +322,19 @@ function pulseTargetChord(index = chordIndex) {
   const group = practiceGroupsForHand()[index];
   if (!group) return;
   const feedbackPlayground = document.querySelector('.feedback-playground');
+  const progress = document.querySelector('.practice-progress');
   feedbackPlayground?.classList.add('feedback-playground--sounding');
+  progress?.classList.add('practice-progress--sounding');
   const stop = piano.playNotes(group.notes.map((n) => n.pitch), TARGET_CHORD_MS);
   playbackStops.push(stop);
   const visualPulseTimer = window.setTimeout(() => {
     feedbackPlayground?.classList.remove('feedback-playground--sounding');
+    progress?.classList.remove('practice-progress--sounding');
   }, TARGET_CHORD_MS);
   playbackStops.push(() => {
     window.clearTimeout(visualPulseTimer);
     feedbackPlayground?.classList.remove('feedback-playground--sounding');
+    progress?.classList.remove('practice-progress--sounding');
   });
 }
 
@@ -400,6 +405,7 @@ function evaluateAttempt() {
   }
 
   pressedAttemptMidis.clear();
+  pulseTargetChord(chordIndex);
   scheduleIdlePulse(chordIndex);
 }
 
@@ -448,18 +454,14 @@ function setTargetLineState(selector, state) {
 
 function updateFeedback() {
   if (!playground) return;
-  const debug = document.getElementById('debug');
   const feedbackPlayground = document.querySelector('.feedback-playground');
   const target = currentTarget();
   const targetMidis = currentTargetMidis();
-  const targetNotes = currentTargetNotes();
   const feedbackNotes = getFeedbackNotesForHand();
-  const physicallyActiveCount = activeNotesByMidi.size;
-  const feedbackCount = feedbackNotes.length;
-  const isTruncated = physicallyActiveCount > feedbackCount;
   const wholeTargetCorrect = phase === 'success' || notesMatchTarget(target, feedbackNotes);
   if (feedbackPlayground) {
     feedbackPlayground.classList.toggle('feedback-playground--correct', wholeTargetCorrect);
+    feedbackPlayground.classList.toggle('feedback-playground--visualizer-off', !visualizerEnabled);
   }
   if (feedbackNotes.length === 0) {
     setTargetLineState('.target-line--pink', 'neutral');
@@ -486,12 +488,6 @@ function updateFeedback() {
         greenTargetMidi: targetMidis[0]
       });
     }
-    if (debug) {
-      debug.textContent =
-        activeHand === 'L'
-          ? `left hand | target: ${targetNotes.join(' + ')} | active: - | play 1 or 2 notes`
-          : `target: ${targetNotes[0]} | active: - | hold 1 note`;
-    }
     return;
   }
   if (activeHand === 'L') {
@@ -510,12 +506,6 @@ function updateFeedback() {
       pinkTargetMidi: comparison[0].targetMidi,
       orangeTargetMidi: comparison[1].targetMidi
     });
-    if (debug) {
-      const p = comparison[0].distance > 0 ? `+${comparison[0].distance}` : `${comparison[0].distance}`;
-      const o = comparison[1].distance > 0 ? `+${comparison[1].distance}` : `${comparison[1].distance}`;
-      const suffix = isTruncated ? ' | using latest 2 notes' : '';
-      debug.textContent = `left hand | target: ${targetNotes.join(' + ')} | active: ${activeDebugString()} | pink: ${comparison[0].playedPitch ?? '-'}→${comparison[0].targetPitch} = ${p} | orange: ${comparison[1].playedPitch ?? '-'}→${comparison[1].targetPitch} = ${o}${suffix}`;
-    }
     return;
   }
   const played = feedbackNotes[feedbackNotes.length - 1];
@@ -529,11 +519,6 @@ function updateFeedback() {
     showGreen: true,
     greenTargetMidi: target[0].midi
   });
-  if (debug) {
-    const d = distance > 0 ? `+${distance}` : `${distance}`;
-    const suffix = isTruncated ? ' | using latest note' : '';
-    debug.textContent = `target: ${target[0].pitch} | active: ${played.pitch} | green: ${played.pitch}→${target[0].pitch} = ${d}${suffix}`;
-  }
 }
 
 function setActiveHand(nextHand) {
@@ -549,6 +534,7 @@ function setActiveHand(nextHand) {
 }
 
 function updateProgressUi() {
+  const progressWrap = document.querySelector('.practice-progress');
   const status = document.getElementById('status');
   const progressText = document.getElementById('progress-text');
   const progressFill = document.getElementById('progress-fill');
@@ -563,6 +549,7 @@ function updateProgressUi() {
     complete: 'Complete'
   }[phase] ?? '';
 
+  progressWrap?.classList.toggle('practice-progress--correct', phase === 'success' || phase === 'complete');
   if (status) status.textContent = statusText;
   if (progressText) progressText.textContent = `${progress}/${total}`;
   if (progressFill) progressFill.style.width = `${pct}%`;
@@ -585,6 +572,16 @@ function renderPractice() {
     <main class="practice-screen">
       <img class="app-logo" src="/logo.svg" alt="Harmonia logo" />
       <section class="keyboard-section">
+        <label class="music-picker">
+          <span>Song</span>
+          <select aria-label="Choose song">
+            <option selected>Viva la Vida</option>
+          </select>
+        </label>
+        <label class="visualizer-toggle">
+          <input id="visualizer-toggle" type="checkbox" ${visualizerEnabled ? 'checked' : ''} />
+          <span>Visualizer</span>
+        </label>
         <div class="hand-selector">
           <button class="hand-button ${activeHand === 'L' ? 'active' : ''}" data-hand="L">Left hand</button>
           <button class="hand-button ${activeHand === 'R' ? 'active' : ''}" data-hand="R">Right hand</button>
@@ -597,7 +594,6 @@ function renderPractice() {
           <p class="small" id="progress-text"></p>
           <div class="progress"><span id="progress-fill"></span></div>
         </div>
-        <p class="small" id="debug"></p>
         <div class="feedback-playground">
           ${
             activeHand === 'L'
@@ -635,6 +631,11 @@ function renderPractice() {
   startBtn?.addEventListener('click', () => {
     showIntroOverlay = false;
     render();
+  });
+  const visualizerToggle = document.getElementById('visualizer-toggle');
+  visualizerToggle?.addEventListener('change', (event) => {
+    visualizerEnabled = event.currentTarget.checked;
+    updateFeedback();
   });
   piano = mountPracticePiano(document.getElementById('piano-host'), {
     canActivateNote,
