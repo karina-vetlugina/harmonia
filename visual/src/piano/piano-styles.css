@@ -47,13 +47,13 @@
 }
 
 .piano-host .key.active.white {
-  background: #90b8ff;
-  box-shadow: 0 0 22px rgba(140, 180, 255, 0.88);
+  background: #b3b8c1;
+  box-shadow: 0 0 16px rgba(187, 194, 206, 0.45);
 }
 
 .piano-host .key.active.black {
-  background: #5789ff;
-  box-shadow: 0 0 20px rgba(87, 137, 255, 0.84);
+  background: #4a4f59;
+  box-shadow: 0 0 16px rgba(138, 145, 158, 0.45);
 }
 
 .piano-host .key.active {
