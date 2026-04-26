@@ -255,6 +255,14 @@ function canActivateNote(note) {
   return activeNotesByMidi.size < getMaxActiveNotesForHand();
 }
 
+function setTargetLineState(selector, state) {
+  const line = document.querySelector(selector);
+  if (!line) return;
+  line.classList.remove('target-line--correct', 'target-line--incorrect');
+  if (state === 'correct') line.classList.add('target-line--correct');
+  if (state === 'incorrect') line.classList.add('target-line--incorrect');
+}
+
 function updateFeedback() {
   if (!playground) return;
   const debug = document.getElementById('debug');
@@ -266,6 +274,9 @@ function updateFeedback() {
   const feedbackCount = feedbackNotes.length;
   const isTruncated = physicallyActiveCount > feedbackCount;
   if (feedbackNotes.length === 0) {
+    setTargetLineState('.target-line--pink', 'neutral');
+    setTargetLineState('.target-line--orange', 'neutral');
+    setTargetLineState('.target-line--green', 'neutral');
     if (activeHand === 'L') {
       playground.updateState({
         mode: 'left',
@@ -299,6 +310,8 @@ function updateFeedback() {
     const comparison = getTwoNoteComparison(firstLeftTarget, feedbackNotes);
     const showPink = comparison[0].playedMidi != null;
     const showOrange = comparison[1].playedMidi != null;
+    setTargetLineState('.target-line--pink', showPink ? (comparison[0].distance === 0 ? 'correct' : 'incorrect') : 'neutral');
+    setTargetLineState('.target-line--orange', showOrange ? (comparison[1].distance === 0 ? 'correct' : 'incorrect') : 'neutral');
     playground.updateState({
       mode: 'left',
       pinkDistance: comparison[0].distance,
@@ -319,6 +332,7 @@ function updateFeedback() {
   }
   const played = feedbackNotes[feedbackNotes.length - 1];
   const distance = played.midi - target[0].midi;
+  setTargetLineState('.target-line--green', distance === 0 ? 'correct' : 'incorrect');
   playground.updateState({
     mode: 'right',
     greenDistance: distance,
