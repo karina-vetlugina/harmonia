@@ -7,12 +7,11 @@ const NOTE_ORDER = [
 ];
 
 const NOTE_TO_KEY = {
-  E3: 'c', F3: 'v', G3: 'b', A3: 'n', B3: 'm',
-  'F#3': 'g', 'G#3': 'h', 'A#3': 'j',
-  C4: 'q', D4: 'w', E4: 'e', F4: 'r', G4: 't',
-  A4: 'y', B4: 'u', C5: 'i', D5: 'o', E5: 'p', F5: '[',
-  'C#4': '2', 'D#4': '3', 'F#4': '5', 'G#4': '6', 'A#4': '7',
-  'C#5': '9', 'D#5': '0'
+  A3: 'q', B3: 'w', C4: 'e', D4: 'r', E4: 't',
+  F4: 'y', G4: 'u', A4: 'i', B4: 'o', C5: 'p',
+  'A#3': '2', 'C#4': '4', 'D#4': '5', 'F#4': '7', 'G#4': '8', 'A#4': '9',
+  E3: 'z', F3: 'x', G3: 'c', 'F#3': 'd', 'G#3': 's',
+  D5: 'n', E5: 'm', F5: ',', 'C#5': 'l', 'D#5': 'j'
 };
 
 const WHITE_KEY_WIDTH = 54;
@@ -299,6 +298,16 @@ export function mountPracticePiano(hostEl, { canActivateNote, onNoteDown, onNote
   window.addEventListener('blur', onBlur);
 
   return {
+    playNotes(notes, durationMs = 700) {
+      notes.forEach((note) => void playNote(note));
+      const t = window.setTimeout(() => {
+        notes.forEach((note) => stopNote(note));
+      }, durationMs);
+      return () => {
+        window.clearTimeout(t);
+        notes.forEach((note) => stopNote(note));
+      };
+    },
     destroy() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
