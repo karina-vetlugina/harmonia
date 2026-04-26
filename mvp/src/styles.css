@@ -1,0 +1,268 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  color: #f5f7fb;
+  background: #090a0f;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  padding-bottom: 160px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #1a1528 0%, #0e0e12 45%, #0a0a0c 100%),
+    #090a0f;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 28px 18px 22px;
+}
+
+.practice-card,
+.workspace {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(9, 12, 18, 0.72);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.practice-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #9eecc1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 4.6rem);
+  line-height: 0.92;
+}
+
+.subtitle,
+.status,
+.target-card small {
+  color: #aeb5c4;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+}
+
+.target-card {
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+  padding: 18px;
+  border: 1px solid rgba(158, 236, 193, 0.2);
+  border-radius: 18px;
+  background: rgba(158, 236, 193, 0.07);
+}
+
+.target-card span {
+  color: #8f97a6;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.target-card strong {
+  font-size: 2rem;
+}
+
+.workspace {
+  margin-top: 18px;
+  border-radius: 28px;
+  padding: 18px;
+}
+
+.status {
+  min-height: 24px;
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+}
+
+.chord-steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.chord-step {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.chord-step.done {
+  background: rgba(158, 236, 193, 0.35);
+}
+
+.chord-step.current {
+  background: #9eecc1;
+  transform: scale(1.35);
+}
+
+.chord-step.success {
+  background: #9eecc1;
+  transform: scale(1.6);
+  box-shadow: 0 0 10px rgba(158, 236, 193, 0.7);
+  animation: step-pulse 0.4s ease-out;
+}
+
+@keyframes step-pulse {
+  0%   { transform: scale(1); box-shadow: none; }
+  50%  { transform: scale(1.9); box-shadow: 0 0 18px rgba(158, 236, 193, 0.9); }
+  100% { transform: scale(1.6); box-shadow: 0 0 10px rgba(158, 236, 193, 0.7); }
+}
+
+.status--success {
+  color: #9eecc1;
+  font-weight: 600;
+}
+
+.countdown-bar {
+  height: 3px;
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: #9eecc1;
+  transform-origin: left;
+  animation: countdown-shrink 2s linear forwards;
+}
+
+@keyframes countdown-shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* Piano dock — fixed bottom center */
+.piano-dock {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px 0;
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(24px);
+  border-radius: 16px 16px 0 0;
+  z-index: 100;
+}
+
+.piano {
+  --white-width: 32px;
+  --white-height: 110px;
+  --black-width: 20px;
+  --black-height: 68px;
+  position: relative;
+  width: calc(var(--white-width) * 16);
+  height: var(--white-height);
+  user-select: none;
+  background: #080a0e;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+}
+
+.key {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 0 0 5px 5px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  transition:
+    transform 60ms ease,
+    background 60ms ease,
+    box-shadow 60ms ease;
+}
+
+.key.white {
+  width: var(--white-width);
+  height: var(--white-height);
+  background: rgba(240, 242, 248, 0.88);
+  color: rgba(30, 36, 50, 0.6);
+  z-index: 1;
+}
+
+.key.black {
+  width: var(--black-width);
+  height: var(--black-height);
+  background: #0d0f16;
+  color: rgba(200, 210, 230, 0.5);
+  z-index: 2;
+}
+
+.key.active.white {
+  background: #90b8ff;
+  box-shadow: 0 0 14px rgba(140, 180, 255, 0.7);
+}
+
+.key.active.black {
+  background: #5789ff;
+  box-shadow: 0 0 12px rgba(87, 137, 255, 0.7);
+}
+
+.key.active {
+  transform: translateY(2px);
+}
+
+.key-note {
+  display: none;
+}
+
+@media (max-width: 940px) {
+  .practice-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    padding-inline: 10px;
+  }
+
+  .practice-card,
+  .workspace {
+    padding: 14px;
+  }
+
+  .piano {
+    --white-width: 26px;
+    --white-height: 90px;
+    --black-width: 16px;
+    --black-height: 56px;
+    width: calc(var(--white-width) * 16);
+    height: var(--white-height);
+  }
+}
