@@ -4,7 +4,7 @@
 
 Built for **BearHack 2026** under the theme *Breaking the Norm*.
 
-![Main screen of Harmonia](assets/main-screen.png)
+![Main screen of Harmonia](assets/main-screen2.png)
 
 ## The Idea
 
