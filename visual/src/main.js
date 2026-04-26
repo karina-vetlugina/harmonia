@@ -7,6 +7,7 @@ const app = document.getElementById('app');
 let piano = null;
 let playground = null;
 let showIntroOverlay = true;
+let showTutorialOverlay = false;
 let visualizerEnabled = true;
 const activeNotesByMidi = new Map();
 const activeMidiOrder = [];
@@ -26,6 +27,7 @@ const START_TARGET_DELAY_MS = 400;
 const EVAL_DELAY_MS = 300;
 const SUCCESS_ADVANCE_MS = 600;
 const IDLE_PULSE_DELAY_MS = 5000;
+const SOUND_PULSE_VISUAL_MS = 1100;
 
 const leftHandNotes = vivaLaVidaSongNotes.notes
   .filter((n) => n.hand === 'L')
@@ -323,18 +325,22 @@ function pulseTargetChord(index = chordIndex) {
   if (!group) return;
   const feedbackPlayground = document.querySelector('.feedback-playground');
   const progress = document.querySelector('.practice-progress');
+  const soundIndicator = document.getElementById('sound-indicator');
   feedbackPlayground?.classList.add('feedback-playground--sounding');
   progress?.classList.add('practice-progress--sounding');
+  soundIndicator?.classList.add('sound-indicator--visible');
   const stop = piano.playNotes(group.notes.map((n) => n.pitch), TARGET_CHORD_MS);
   playbackStops.push(stop);
   const visualPulseTimer = window.setTimeout(() => {
     feedbackPlayground?.classList.remove('feedback-playground--sounding');
     progress?.classList.remove('practice-progress--sounding');
-  }, TARGET_CHORD_MS);
+    soundIndicator?.classList.remove('sound-indicator--visible');
+  }, SOUND_PULSE_VISUAL_MS);
   playbackStops.push(() => {
     window.clearTimeout(visualPulseTimer);
     feedbackPlayground?.classList.remove('feedback-playground--sounding');
     progress?.classList.remove('practice-progress--sounding');
+    soundIndicator?.classList.remove('sound-indicator--visible');
   });
 }
 
@@ -592,6 +598,7 @@ function renderPractice() {
         <div class="practice-progress">
           <p class="small" id="status"></p>
           <p class="small" id="progress-text"></p>
+          <p id="sound-indicator" class="sound-indicator">Target sound is playing</p>
           <div class="progress"><span id="progress-fill"></span></div>
         </div>
         <div class="feedback-playground">
@@ -615,6 +622,20 @@ function renderPractice() {
         <section class="landing-card">
           <img class="landing-hero" src="/nav.svg" alt="Harmonia landing" />
           <div class="landing-actions">
+            <button id="continue-intro" class="landing-start" type="button">Continue</button>
+          </div>
+        </section>
+      </div>
+      `
+          : ''
+      }
+      ${
+        showTutorialOverlay
+          ? `
+      <div class="intro-overlay">
+        <section class="landing-card">
+          <img class="landing-hero" src="/tutorial.svg" alt="Match the sound of the chord with the notes on the keyboard" />
+          <div class="landing-actions">
             <button id="start-practice" class="landing-start" type="button">Start</button>
           </div>
         </section>
@@ -627,9 +648,15 @@ function renderPractice() {
   app.querySelectorAll('.hand-button').forEach((button) => {
     button.addEventListener('click', () => setActiveHand(button.dataset.hand));
   });
+  const continueBtn = document.getElementById('continue-intro');
+  continueBtn?.addEventListener('click', () => {
+    showIntroOverlay = false;
+    showTutorialOverlay = true;
+    render();
+  });
   const startBtn = document.getElementById('start-practice');
   startBtn?.addEventListener('click', () => {
-    showIntroOverlay = false;
+    showTutorialOverlay = false;
     render();
   });
   const visualizerToggle = document.getElementById('visualizer-toggle');

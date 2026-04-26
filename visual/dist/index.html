@@ -11,7 +11,7 @@
     :root {
       --edge-gap: 20px;
       --pink-light: #F1ADFF;
-      --pink-dark: #AC2A9E;
+      --pink-dark: #dca5e8;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -172,11 +172,12 @@
     }
     .hand-button.active {
       border-color: color-mix(in srgb, var(--pink-dark) 72%, transparent);
-      background: linear-gradient(
+      color: var(--pink-dark);
+      /* background: linear-gradient(
         180deg,
         color-mix(in srgb, var(--pink-light) 32%, transparent),
         color-mix(in srgb, var(--pink-dark) 20%, transparent)
-      );
+      ); */
       box-shadow: 0 0 14px color-mix(in srgb, var(--pink-dark) 30%, transparent);
     }
     .feedback-section {
@@ -193,6 +194,22 @@
       gap: 4px 12px;
       align-items: center;
       padding: 6px 12px 4px;
+    }
+    .sound-indicator {
+      grid-column: 1 / -1;
+      margin: -2px 0 0;
+      color: rgba(246, 244, 255, 0.7);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(-2px);
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    .sound-indicator--visible {
+      opacity: 1;
+      transform: translateY(0);
     }
     #status {
       font-size: 18px;
@@ -286,7 +303,7 @@
       transform: translateY(0) scale(1);
     }
     .feedback-playground.feedback-playground--sounding {
-      animation: target-sound-pulse 700ms ease-out;
+      animation: target-sound-pulse 1100ms ease-out;
     }
     .feedback-playground.feedback-playground--sounding .target-line {
       box-shadow: 0 0 18px rgba(246, 244, 255, 0.34);
@@ -487,7 +504,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="/assets/index-ujw3eJi1.js"></script>
+  <script type="module" crossorigin src="/assets/index-DH5fjrB7.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DSypGLkC.css">
 </head>
 <body>
