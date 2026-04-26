@@ -24,6 +24,13 @@ const KEYBOARD_TO_NOTE = Object.fromEntries(
   Object.entries(NOTE_TO_KEY).map(([note, key]) => [key, note])
 );
 
+function noteToMidi(note) {
+  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const pitch = note.slice(0, -1);
+  const octave = Number(note.slice(-1));
+  return (octave + 1) * 12 + names.indexOf(pitch);
+}
+
 function buildKeyboardData() {
   let whitePosition = 0;
   return NOTE_ORDER.map((note) => {
@@ -43,7 +50,7 @@ function buildKeyboardData() {
   });
 }
 
-export function mountPracticePiano(hostEl) {
+export function mountPracticePiano(hostEl, { onNote } = {}) {
   hostEl.classList.add('piano-host');
   hostEl.innerHTML = '<div class="piano" id="practice-piano" aria-label="Playable piano keyboard"></div>';
   const pianoEl = hostEl.querySelector('#practice-piano');
@@ -74,7 +81,10 @@ export function mountPracticePiano(hostEl) {
       noteLabel.textContent = noteInfo.note;
       keyEl.appendChild(noteLabel);
     }
-    keyEl.addEventListener('pointerdown', () => setKeyActiveState(noteInfo.note, true));
+    keyEl.addEventListener('pointerdown', () => {
+      setKeyActiveState(noteInfo.note, true);
+      if (onNote) onNote({ pitch: noteInfo.note, midi: noteToMidi(noteInfo.note) });
+    });
     keyEl.addEventListener('pointerup', () => setKeyActiveState(noteInfo.note, false));
     keyEl.addEventListener('pointercancel', () => setKeyActiveState(noteInfo.note, false));
     keyEl.addEventListener('pointerleave', () => setKeyActiveState(noteInfo.note, false));
@@ -90,6 +100,7 @@ export function mountPracticePiano(hostEl) {
     if (pressedKeyboardKeys.has(event.key.toLowerCase())) return;
     pressedKeyboardKeys.add(event.key.toLowerCase());
     setKeyActiveState(note, true);
+    if (onNote) onNote({ pitch: note, midi: noteToMidi(note) });
   }
 
   function onKeyUp(event) {
